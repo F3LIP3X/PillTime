@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Pencil } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -11,6 +12,7 @@ import { useTomasDeHoy, type TomaDeHoy } from '@/features/tomas/hooks/useTomasDe
 import { useAsegurarTomasDeHoy } from '@/features/tomas/hooks/useAsegurarTomasDeHoy';
 import { useMarcarToma } from '@/features/tomas/hooks/useMarcarToma';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
+import { EditarTomaModal } from '@/features/tomas/components/EditarTomaModal';
 
 const UMBRAL_STOCK_BAJO = 5;
 
@@ -25,6 +27,7 @@ export default function Inicio() {
   const { tomasDeHoy, recargar: recargarTomas } = useTomasDeHoy();
   const { medicamentos } = useMedicamentos();
   const { marcarTomado, marcarOmitido } = useMarcarToma();
+  const [tomaEditando, setTomaEditando] = useState<TomaDeHoy | null>(null);
 
   const medicamentosConStockBajo = medicamentos.filter((m) => m.stockRestante <= UMBRAL_STOCK_BAJO);
 
@@ -66,7 +69,17 @@ export default function Inicio() {
         }
         renderItem={({ item }) => (
           <Card>
-            <Text style={[typography.subtitle, { color: colors.text }]}>{horaDe(item.fechaHoraProgramada)}</Text>
+            <View style={styles.cabecera}>
+              <Text style={[typography.subtitle, { color: colors.text }]}>{horaDe(item.fechaHoraProgramada)}</Text>
+              <Pressable
+                onPress={() => setTomaEditando(item)}
+                accessibilityRole="button"
+                accessibilityLabel="Editar toma"
+                hitSlop={8}
+              >
+                <Pencil color={colors.textSecondary} size={18} />
+              </Pressable>
+            </View>
             <Text style={[typography.body, { color: colors.text }]}>
               {item.nombreMedicamento} — {item.dosis}
             </Text>
@@ -89,6 +102,12 @@ export default function Inicio() {
         onPress={() => router.push('/medicamento/nuevo')}
         accessibilityLabel="Añadir medicamento"
       />
+
+      <EditarTomaModal
+        toma={tomaEditando}
+        onClose={() => setTomaEditando(null)}
+        onCambiado={recargarTomas}
+      />
     </View>
   );
 }
@@ -97,4 +116,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.md, gap: spacing.md },
   lista: { gap: spacing.sm, flexGrow: 1 },
   acciones: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });

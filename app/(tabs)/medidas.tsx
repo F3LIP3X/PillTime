@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pencil } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -9,6 +10,7 @@ import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { TIPO_MEDIDA_SALUD, type TipoMedidaSalud } from '@/db/schema';
 import { useMedidasSalud } from '@/features/medidas-salud/hooks/useMedidasSalud';
+import { EditarMedidaModal } from '@/features/medidas-salud/components/EditarMedidaModal';
 
 const ETIQUETA_TIPO: Record<TipoMedidaSalud, string> = {
   peso: 'Peso',
@@ -23,7 +25,8 @@ export default function Medidas() {
   const [tipo, setTipo] = useState<TipoMedidaSalud>('peso');
   const [valor1, setValor1] = useState('');
   const [valor2, setValor2] = useState('');
-  const { medidas, registrar } = useMedidasSalud(tipo);
+  const { medidas, registrar, actualizar, eliminar } = useMedidasSalud(tipo);
+  const [medidaEditando, setMedidaEditando] = useState<(typeof medidas)[number] | null>(null);
 
   const esTension = tipo === 'tension';
 
@@ -85,15 +88,33 @@ export default function Medidas() {
         }
         renderItem={({ item }) => (
           <Card>
-            <Text style={[typography.body, { color: colors.text }]}>
-              {item.valor1}
-              {item.valor2 ? ` / ${item.valor2}` : ''}
-            </Text>
+            <View style={styles.cabecera}>
+              <Text style={[typography.body, { color: colors.text }]}>
+                {item.valor1}
+                {item.valor2 ? ` / ${item.valor2}` : ''}
+              </Text>
+              <Pressable
+                onPress={() => setMedidaEditando(item)}
+                accessibilityRole="button"
+                accessibilityLabel="Editar registro"
+                hitSlop={8}
+              >
+                <Pencil color={colors.textSecondary} size={16} />
+              </Pressable>
+            </View>
             <Text style={[typography.caption, { color: colors.textSecondary }]}>
               {new Date(item.fechaHora).toLocaleString('es-ES')}
             </Text>
           </Card>
         )}
+      />
+
+      <EditarMedidaModal
+        medida={medidaEditando}
+        esTension={esTension}
+        onClose={() => setMedidaEditando(null)}
+        onGuardar={actualizar}
+        onEliminar={eliminar}
       />
     </View>
   );
@@ -105,4 +126,5 @@ const styles = StyleSheet.create({
   tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
   form: { gap: spacing.sm },
   lista: { gap: spacing.sm, flexGrow: 1 },
+  cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });
