@@ -102,6 +102,18 @@ Para que Metro pueda importar los `.sql` generados hacen falta:
 - `metro.config.js` — añade `sql` a `resolver.sourceExts`.
 - `babel.config.js` — plugin `inline-import` sobre extensión `.sql`.
 
+**No confíes ciegamente en el SQL que genera `drizzle-kit generate`
+cuando una migración recrea una tabla** (añadir/quitar NOT NULL, cambiar
+tipos, etc. en SQLite obliga a crear tabla nueva + copiar datos + borrar
+la vieja + renombrar). Ya ha generado al menos una vez un `INSERT INTO
+__new_tabla SELECT columnas_nuevas FROM tabla_vieja` leyendo de la tabla
+vieja columnas que no existen ahí todavía (las que la propia migración
+está añadiendo) — rompería en cualquier dispositivo que ya tuviera datos.
+Antes de dar una migración de este tipo por buena, simúlala con
+`better-sqlite3` en un script desechable: aplica la migración anterior,
+inserta una fila de prueba, aplica la nueva migración, y comprueba
+`PRAGMA foreign_key_check`.
+
 Si se borra o falla la importación de un `.sql` en tiempo de build, revisa
 primero estos dos archivos antes de sospechar de Drizzle.
 
@@ -154,15 +166,56 @@ de una sola tabla, sin relación de catálogo con `medicamentos` — un
 mismo código solo puede tener una entrada, que se sobrescribe si el
 usuario corrige el nombre/dosis.
 
+**3. `horarios_medicamento.tipo` separa dos modelos de pauta a
+propósito, en vez de forzar uno solo.** `'semanal'` (hora fija + días de
+la semana, indefinido — medicación crónica) y `'intervalo'` (cada
+`frecuenciaHoras` horas desde `fechaHoraInicio`, durante `duracionDias`
+días — un tratamiento con fin, ej. antibiótico). Son modelos de
+generación de tomas opuestos, no una variación menor del mismo:
+- `'semanal'`: tomas generadas perezosamente día a día
+  (`useAsegurarTomasDeHoy`), porque no tiene fecha de fin.
+- `'intervalo'`: TODAS las tomas se generan de golpe al crear el horario
+  (`useCrearTratamientoIntervalo`), porque el fin se conoce desde el
+  principio.
+
+Por eso `hora`/`diasSemana` (solo aplican a 'semanal') y
+`frecuenciaHoras`/`fechaHoraInicio`/`duracionDias` (solo a 'intervalo')
+son todas nullable a nivel de columna — la obligatoriedad real según
+`tipo` se valida en los hooks, no en el esquema. `useAsegurarTomasDeHoy`
+y `useCumplimientoPorFranja` filtran explícitamente `tipo='semanal'`; si
+se te ocurre "generalizarlos" para que traten ambos tipos igual, primero
+piensa en que 'intervalo' ya tiene sus tomas creadas y no tiene una
+"franja horaria" fija que atribuirle.
+
 ## Notificaciones locales
 
-`src/features/notificaciones/scheduler.ts` agrupa horarios que coinciden
-en hora exacta y mismos días (`agruparHorariosCoincidentes`) para emitir
-una sola notificación con varios medicamentos en vez de una por
-medicamento (evita fatiga de notificaciones, función tomada de
-MyTherapy — ver `docs/analisis-competencia.md`). El texto añade
-"(antes/después de comer)" cuando aplica. El mapeo de días es ISO
-(1=lunes…7=domingo) en el esquema → formato de Expo Notifications
+Dos funciones, una por tipo de horario — no comparten lógica de
+agrupación porque el tipo de trigger es distinto:
+
+- `reprogramarNotificaciones` (horarios `'semanal'`): agrupa horarios que
+  coinciden en hora exacta y mismos días (`agruparHorariosCoincidentes`)
+  para emitir una sola notificación con varios medicamentos en vez de una
+  por medicamento (evita fatiga de notificaciones, función tomada de
+  MyTherapy — ver `docs/analisis-competencia.md`), con un trigger
+  `WEEKLY` recurrente por día de la semana.
+- `programarNotificacionesTratamiento` (horarios `'intervalo'`): una
+  notificación puntual (trigger `DATE`, no recurrente) por cada toma ya
+  generada del tratamiento. No agrupa con otras tomas coincidentes de
+  otros medicamentos — simplificación aceptada mientras el volumen de
+  tratamientos simultáneos sea bajo.
+  **Limitación conocida sin resolver:** `reprogramarNotificaciones`
+  cancela TODAS las notificaciones programadas en el sistema
+  (`cancelAllScheduledNotificationsAsync`) antes de reprogramar solo las
+  `'semanal'` — si hay un tratamiento por intervalo en curso y luego se
+  da de alta un medicamento crónico nuevo, sus recordatorios pendientes
+  se borran sin querer. Arreglarlo bien exige guardar los identificadores
+  que devuelve `scheduleNotificationAsync` para cancelar solo lo que
+  corresponde a `'semanal'`, en vez de cancelar todo. No se ha hecho
+  porque solo se puede verificar con notificaciones funcionando de
+  verdad (development build), no en Expo Go.
+
+El texto añade "(antes/después de comer)" cuando aplica. El mapeo de días
+es ISO (1=lunes…7=domingo) en el esquema → formato de Expo Notifications
 (0=domingo…6=sábado) vía `isoADiaExpo`.
 
 **`expo-notifications` no funciona en Expo Go en Android (desde SDK 53),
