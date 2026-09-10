@@ -137,6 +137,33 @@ MyTherapy — ver `docs/analisis-competencia.md`). El texto añade
 (1=lunes…7=domingo) en el esquema → formato de Expo Notifications
 (0=domingo…6=sábado) vía `isoADiaExpo`.
 
+## Assets de marca (icono, adaptive icon, splash)
+
+Icono aprobado: concepto "cápsula partida" (cápsula en diagonal, mitad
+`#028090` / mitad `#02C39A`, separador del color de fondo sobre el que se
+compone). Los PNG en `assets/` (`icon.png`, `favicon.png`,
+`android-icon-foreground.png`, `android-icon-background.png`,
+`android-icon-monochrome.png`, `splash-icon.png`, `splash-icon-dark.png`)
+se generaron a partir de esa geometría con `@resvg/resvg-js`, en un
+proyecto Node desechable fuera de este repo — no se añadió como
+dependencia del proyecto ni se versionó el SVG fuente, solo el PNG
+resultante. Si hay que regenerarlos (ajustar proporciones, añadir un
+tamaño que falte), hay que rehacer ese script puntual; la geometría base
+está descrita en la comparativa de conceptos que se le mostró al usuario
+antes de aprobar el 01 (rect 72×32 rx16 rotado 45° sobre un viewBox 0-100,
+recortado por la mitad con `clipPath`).
+
+`android-icon-monochrome.png` es intencionalmente una silueta blanca
+sobre fondo transparente (para el tintado de iconos temáticos de Android
+13+) — se ve "en blanco" si se abre sobre un visor con fondo blanco, eso
+es correcto, no un archivo vacío.
+
+Splash configurado vía el plugin `expo-splash-screen` en `app.json`
+(no existe ya un bloque `splash` de nivel superior, que es el formato
+antiguo): fondo `#FFFFFF` / imagen `splash-icon.png` en claro, fondo
+`#121212` / `splash-icon-dark.png` en oscuro — mismos colores de fondo
+que `src/theme/colors.ts`.
+
 ## Monetización (para cuando llegue)
 
 Banner discreto solo en pantallas no críticas (historial, ajustes).
