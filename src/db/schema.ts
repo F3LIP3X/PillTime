@@ -11,7 +11,21 @@ import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 export const MOMENTO_COMIDA = ['antes', 'despues', 'ninguno'] as const;
 export type MomentoComida = (typeof MOMENTO_COMIDA)[number];
 
-export const ESTADO_TOMA = ['pendiente', 'tomado', 'omitido', 'pospuesto'] as const;
+/**
+ * 'eliminada' es un estado tumba (tombstone), no un estado real de toma:
+ * useEliminarToma NUNCA hace un DELETE físico de la fila. Si borrase la
+ * fila y la toma pertenece a un horario 'semanal' activo,
+ * useAsegurarTomasDeHoy la volvería a crear en la siguiente apertura de
+ * Inicio (solo comprueba si existe una fila para ese horarioId +
+ * fechaHoraProgramada, no si "nunca debió volver a existir") — bug real
+ * reproducido y confirmado con una simulación antes de este comentario.
+ * Por eso "eliminar" es un UPDATE a estado='eliminada': la fila sigue
+ * ahí (bloqueando la regeneración) pero queda invisible en todas partes
+ * (useTomasDeHoy, useHistorial, useCumplimientoPorFranja la excluyen
+ * explícitamente, y no es una opción seleccionable en el selector de
+ * estado de EditarTomaModal).
+ */
+export const ESTADO_TOMA = ['pendiente', 'tomado', 'omitido', 'pospuesto', 'eliminada'] as const;
 export type EstadoToma = (typeof ESTADO_TOMA)[number];
 
 export const TIPO_MEDIDA_SALUD = ['peso', 'tension', 'glucosa', 'sintoma', 'animo'] as const;

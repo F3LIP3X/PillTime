@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, ne, sql } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { horariosMedicamento, tomas } from '@/db/schema';
@@ -50,6 +50,9 @@ export function useCumplimientoPorFranja() {
           // no solo una consecuencia implícita del tipo de join.
           isNotNull(tomas.horarioId),
           eq(horariosMedicamento.tipo, 'semanal'),
+          // 'eliminada' es un tombstone (ver schema.ts): no cuenta como
+          // "programada" ni como "tomada", como si nunca hubiera existido.
+          ne(tomas.estado, 'eliminada'),
         ),
       )
       .groupBy(horariosMedicamento.id);

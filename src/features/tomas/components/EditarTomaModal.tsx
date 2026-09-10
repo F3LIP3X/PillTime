@@ -16,6 +16,7 @@ const ETIQUETA_ESTADO: Record<EstadoToma, string> = {
   tomado: 'Tomado',
   omitido: 'Omitido',
   pospuesto: 'Pospuesto',
+  eliminada: 'Eliminada', // no seleccionable (ver filtro más abajo), solo para completar el tipo.
 };
 
 type TomaEditable = {
@@ -95,7 +96,8 @@ export function EditarTomaModal({ toma, onClose, onCambiado }: Props) {
 
             <Text style={[typography.caption, { color: colors.textSecondary }]}>Estado</Text>
             <View style={styles.opciones}>
-              {ESTADO_TOMA.map((e) => (
+              {/* 'eliminada' es un tombstone interno (ver schema.ts), nunca seleccionable a mano. */}
+              {ESTADO_TOMA.filter((e) => e !== 'eliminada').map((e) => (
                 <Pressable
                   key={e}
                   onPress={() => setEstado(e)}

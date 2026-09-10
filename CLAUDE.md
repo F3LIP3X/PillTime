@@ -187,6 +187,31 @@ se te ocurre "generalizarlos" para que traten ambos tipos igual, primero
 piensa en que 'intervalo' ya tiene sus tomas creadas y no tiene una
 "franja horaria" fija que atribuirle.
 
+**4. `tomas.estado = 'eliminada'` es un estado tumba (tombstone), no un
+estado real.** `useEliminarToma` NUNCA hace `DELETE` físico de la fila
+— hace `UPDATE ... SET estado = 'eliminada'`. Motivo, confirmado con un
+bug real reproducido y verificado con una simulación antes de arreglarlo
+(no solo deducido leyendo el código): si se borra físicamente una toma
+que pertenece a un horario `'semanal'` activo, `useAsegurarTomasDeHoy`
+la vuelve a crear en la siguiente apertura de Inicio, porque esa función
+solo comprueba si existe una fila para ese `horarioId` + `fechaHoraProgramada`
+— no si "esta toma fue borrada a propósito y no debe volver". Dejar la
+fila como tumba bloquea la regeneración sin necesitar una columna nueva
+ni una migración (`estado` es `text` sin `CHECK`, así que añadir un
+valor al enum de TypeScript no toca el esquema SQL).
+
+Efecto en cada sitio que lee `tomas`, para que una "limpieza" no la
+vuelva a hacer visible sin querer:
+- `useTomasDeHoy` y `useHistorial`: excluyen `estado != 'eliminada'`
+  explícitamente — si no, la fila tumba aparecería en las listas.
+- `useCumplimientoPorFranja`: también la excluye, de ambos lados
+  (numerador y denominador) — no cuenta como "programada" ni como
+  "tomada", como si nunca hubiera existido.
+- `useMedicamentos` (stock): no necesita cambio, ya solo suma
+  `estado='tomado'`.
+- `EditarTomaModal`: filtra `'eliminada'` de los chips de estado
+  seleccionables — no es una opción que el usuario elija a mano.
+
 ## Notificaciones locales
 
 Dos funciones, una por tipo de horario — no comparten lógica de

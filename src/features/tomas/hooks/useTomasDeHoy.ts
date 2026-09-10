@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, eq, gte, lt, ne } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { medicamentos, tomas, type EstadoToma } from '@/db/schema';
@@ -44,7 +44,12 @@ export function useTomasDeHoy() {
       .from(tomas)
       .innerJoin(medicamentos, eq(medicamentos.id, tomas.medicamentoId))
       .where(
-        and(gte(tomas.fechaHoraProgramada, inicio), lt(tomas.fechaHoraProgramada, fin)),
+        and(
+          gte(tomas.fechaHoraProgramada, inicio),
+          lt(tomas.fechaHoraProgramada, fin),
+          // 'eliminada' es un tombstone (ver schema.ts), nunca debe verse.
+          ne(tomas.estado, 'eliminada'),
+        ),
       )
       .orderBy(tomas.fechaHoraProgramada);
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, ne } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { medicamentos, tomas, type EstadoToma } from '@/db/schema';
@@ -27,6 +27,8 @@ export function useHistorial() {
       })
       .from(tomas)
       .innerJoin(medicamentos, eq(medicamentos.id, tomas.medicamentoId))
+      // 'eliminada' es un tombstone (ver schema.ts), nunca debe verse.
+      .where(ne(tomas.estado, 'eliminada'))
       .orderBy(desc(tomas.fechaHoraProgramada));
     setHistorial(filas);
   }, [db]);

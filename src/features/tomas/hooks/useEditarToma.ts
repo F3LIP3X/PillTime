@@ -30,12 +30,17 @@ export function useActualizarToma() {
   );
 }
 
+/**
+ * "Eliminar" una toma es un borrado suave (estado='eliminada'), no un
+ * DELETE físico — ver el comentario sobre ESTADO_TOMA en schema.ts para
+ * el porqué (evitar que useAsegurarTomasDeHoy la resucite).
+ */
 export function useEliminarToma() {
   const db = useDb();
 
   return useCallback(
     async (tomaId: number) => {
-      await db.delete(tomas).where(eq(tomas.id, tomaId));
+      await db.update(tomas).set({ estado: 'eliminada' }).where(eq(tomas.id, tomaId));
     },
     [db],
   );
