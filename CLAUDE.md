@@ -165,6 +165,19 @@ MyTherapy — ver `docs/analisis-competencia.md`). El texto añade
 (1=lunes…7=domingo) en el esquema → formato de Expo Notifications
 (0=domingo…6=sábado) vía `isoADiaExpo`.
 
+**`expo-notifications` no funciona en Expo Go en Android (desde SDK 53),
+ni siquiera para notificaciones locales** — hace falta una development
+build para probarlo de verdad ahí (confirmado con un dispositivo real:
+`Notifications.setNotificationHandler` lanza
+`java.io.IOException`/"Android Push notifications... removed from Expo
+Go"). Por eso `setNotificationHandler` y todo el cuerpo de
+`reprogramarNotificaciones` están envueltos en `try/catch` con
+`console.warn` — importar `scheduler.ts` o guardar un horario **nunca**
+debe lanzar solo porque el entorno no soporte notificaciones. Si al
+tocar este archivo se quita alguno de esos `try/catch` "porque ya no
+hace falta", verificarlo primero en Expo Go en Android, no solo en iOS
+o en una development build.
+
 ## Assets de marca (icono, adaptive icon, splash)
 
 Icono aprobado: concepto "cápsula partida" (cápsula en diagonal, mitad

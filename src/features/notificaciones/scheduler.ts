@@ -4,14 +4,24 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import { horariosMedicamento, medicamentos, type MomentoComida } from '@/db/schema';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+try {
+  // En Android dentro de Expo Go (no una development build) esta llamada
+  // lanza "Android Push notifications... removed from Expo Go" desde
+  // SDK 53, aunque solo usemos notificaciones locales — es una limitación
+  // conocida de Expo Go, no un bug nuestro. Se captura para que importar
+  // este módulo nunca tumbe la pantalla que lo usa (p. ej. alta de
+  // medicamento); en una development build o en producción esto no salta.
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (error) {
+  console.warn('No se pudo configurar el manejador de notificaciones:', error);
+}
 
 type HorarioConMedicamento = {
   hora: string;
@@ -84,37 +94,47 @@ function contenidoDeGrupo(grupo: GrupoNotificacion) {
  * activos. Se cancela todo lo anterior primero: es más simple y fiable que
  * calcular un diff, y el volumen de notificaciones programadas por un uso
  * doméstico normal es bajo.
+ *
+ * Nunca lanza: si las notificaciones no están disponibles en el entorno
+ * actual (Expo Go en Android desde SDK 53 — hace falta una development
+ * build ahí — o el usuario denegó el permiso), se registra un aviso y se
+ * continúa. Guardar un medicamento/horario en SQLite no debe depender de
+ * que la programación de notificaciones tenga éxito.
  */
 export async function reprogramarNotificaciones(db: Db) {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
 
-  const filas = await db
-    .select({
-      hora: horariosMedicamento.hora,
-      diasSemana: horariosMedicamento.diasSemana,
-      nombreMedicamento: medicamentos.nombre,
-      momentoComida: medicamentos.momentoComida,
-    })
-    .from(horariosMedicamento)
-    .innerJoin(medicamentos, eq(medicamentos.id, horariosMedicamento.medicamentoId))
-    .where(eq(horariosMedicamento.activo, true));
+    const filas = await db
+      .select({
+        hora: horariosMedicamento.hora,
+        diasSemana: horariosMedicamento.diasSemana,
+        nombreMedicamento: medicamentos.nombre,
+        momentoComida: medicamentos.momentoComida,
+      })
+      .from(horariosMedicamento)
+      .innerJoin(medicamentos, eq(medicamentos.id, horariosMedicamento.medicamentoId))
+      .where(eq(horariosMedicamento.activo, true));
 
-  const grupos = agruparHorariosCoincidentes(filas);
+    const grupos = agruparHorariosCoincidentes(filas);
 
-  for (const grupo of grupos) {
-    const [hour, minute] = grupo.hora.split(':').map(Number);
-    const contenido = contenidoDeGrupo(grupo);
+    for (const grupo of grupos) {
+      const [hour, minute] = grupo.hora.split(':').map(Number);
+      const contenido = contenidoDeGrupo(grupo);
 
-    for (const diaIso of grupo.dias) {
-      await Notifications.scheduleNotificationAsync({
-        content: contenido,
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday: isoADiaExpo(diaIso),
-          hour,
-          minute,
-        },
-      });
+      for (const diaIso of grupo.dias) {
+        await Notifications.scheduleNotificationAsync({
+          content: contenido,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: isoADiaExpo(diaIso),
+            hour,
+            minute,
+          },
+        });
+      }
     }
+  } catch (error) {
+    console.warn('No se pudieron reprogramar las notificaciones:', error);
   }
 }
