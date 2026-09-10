@@ -1,1 +1,145 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 @AGENTS.md
+
+## Qué es esto
+
+PillTime: app móvil de salud personal para recordar la toma de medicamentos.
+100% offline, sin servidor propio ni cuenta de usuario, perfil único por
+instalación. Gratuita, con anuncios pequeños en una fase futura (nunca en
+la pantalla de alarma o confirmación de toma).
+
+Fuente de verdad para alcance funcional, stack y diseño: `docs/plan-tecnico-diseno.md`
+y `docs/analisis-competencia.md`. Antes de añadir o descartar una función,
+consulta esos documentos — recogen qué se comparó con MyTherapy/Medisafe/
+RecuerdaMed y por qué se incluyó o se descartó (p. ej. el modo cuidador se
+descarta explícitamente porque exigiría un servidor de sincronización).
+
+## Comandos
+
+```bash
+npm start            # Metro / Expo dev server
+npm run android       # abrir en Android
+npm run ios           # abrir en iOS
+npm run web           # abrir en web
+npm run typecheck     # tsc --noEmit
+npm run db:generate   # genera migración SQL a partir de src/db/schema.ts
+npm run db:studio     # Drizzle Studio sobre el esquema local
+```
+
+No hay suite de tests configurada todavía.
+
+Instala paquetes JS puros (no nativos de Expo) con `--legacy-peer-deps`
+— el árbol de dependencias de Expo SDK 57 trae un conflicto de peer
+dependency opcional (`react-dom`) no relacionado con este proyecto que
+hace fallar `npm install` sin ese flag. Para paquetes nativos de Expo usa
+`npx expo install <paquete>` (resuelve versión compatible con el SDK).
+
+## Arquitectura
+
+**Expo Router** (file-based routing) en `app/`. El punto de entrada es
+`expo-router/entry` (ver `main` en `package.json`); no existen `App.tsx`
+ni `index.ts` — Expo Router los sustituye.
+
+Todo el código no ligado a una ruta concreta vive en `src/`, organizado
+por feature:
+
+- `src/db/` — `schema.ts` (Drizzle) y `client.ts` (hook `useDb()` sobre
+  `expo-sqlite`).
+- `src/features/<feature>/{hooks,components}` — un hook por operación de
+  lectura/escritura sobre Drizzle (`useMedicamentos`, `useTomasDeHoy`,
+  etc.), sin capa de servicio intermedia.
+- `src/theme/` — paleta "Teal Trust", tipografía y espaciado
+  (`docs/plan-tecnico-diseno.md`), con `useTheme()` para claro/oscuro.
+- `src/stores/` — Zustand, **solo estado de UI** (p. ej. preferencia de
+  tema). Los datos persistentes viven en SQLite, nunca en un store.
+- `src/components/` — UI compartida entre features.
+
+**Gestión de estado y datos:** sin React Query — no hay red que cachear,
+todo es SQLite local. El patrón es Zustand para UI + hooks propios sobre
+Drizzle para todo lo demás (decisión explícita, no un olvido de añadir
+React Query).
+
+**Alias de import:** `@/*` → `./src/*` (`tsconfig.json`).
+
+### Migraciones de Drizzle + expo-sqlite
+
+Las migraciones se generan con `npm run db:generate` (usa
+`drizzle.config.ts`, driver `expo`) y quedan en `src/db/migrations/`,
+incluyendo un `migrations.js` autogenerado que no se debe editar a mano.
+Para que Metro pueda importar los `.sql` generados hacen falta:
+
+- `metro.config.js` — añade `sql` a `resolver.sourceExts`.
+- `babel.config.js` — plugin `inline-import` sobre extensión `.sql`.
+
+Si se borra o falla la importación de un `.sql` en tiempo de build, revisa
+primero estos dos archivos antes de sospechar de Drizzle.
+
+## Esquema de base de datos (`src/db/schema.ts`)
+
+Perfil único por instalación: **no existe tabla de perfiles ni columna
+`perfilId`** en ninguna tabla. Añadir un "modo cuidador" multi-perfil
+(descartado por ahora, ver `docs/analisis-competencia.md`) requeriría
+migrar todas las tablas de abajo.
+
+Tablas: `medicamentos`, `horarios_medicamento`, `tomas`,
+`codigos_barras_aprendidos`, `medidas_salud`, `citas_medicas`.
+
+**Stock restante** no se guarda: se calcula en consulta como
+`stockInicial − SUM(unidadesPorToma)` de las tomas en estado `tomado`
+(ver `useMedicamentos`).
+
+### Dos decisiones de esquema que no son obvias leyendo el código superficialmente
+
+**1. `tomas.horarioId` es nullable a propósito.** Permite tomas
+puntuales/manuales que no vienen de una pauta fija en
+`horarios_medicamento`. Esto tiene efectos distintos en cada métrica que
+toca la tabla `tomas`, y están documentados como comentario justo sobre
+la columna en `schema.ts`:
+
+- **Aviso de stock bajo** (`useMedicamentos`): NO depende de `horarioId`.
+  Agrega por `medicamentoId` sobre todas las tomas `tomado`, con o sin
+  horario.
+- **% de cumplimiento por franja horaria** (`useCumplimientoPorFranja`):
+  agrupa por `horarioId` y **excluye explícitamente** las tomas con
+  `horarioId = null` (`WHERE horario_id IS NOT NULL`) — no tienen franja
+  a la que atribuirse.
+- **% de cumplimiento global** (si se implementa): debe incluir todas las
+  tomas, con y sin horario.
+
+Si tocas esta columna: **no la hagas `NOT NULL` "para simplificar"** sin
+comprobar antes si sigue existiendo el caso de toma manual sin horario
+fijo. Si sigue existiendo, la solución correcta es mantener la nulabilidad
+y documentar la exclusión donde corresponda — no eliminar la flexibilidad.
+
+**2. `codigos_barras_aprendidos` es una caché de aprendizaje local, no
+un catálogo de medicamentos.** La app es 100% offline y no incluye (ni
+consulta) una base de datos externa de medicamentos por código de
+barras. En su lugar: la primera vez que se escanea un código nuevo, el
+usuario rellena nombre/dosis a mano al dar de alta el medicamento
+(`useCrearMedicamento`); ese código + nombre/dosis se guardan (upsert)
+en esta tabla. La próxima vez que se escanee ese mismo código
+(`useBarcodeLookup`), se autocompleta el formulario. Es una conveniencia
+de una sola tabla, sin relación de catálogo con `medicamentos` — un
+mismo código solo puede tener una entrada, que se sobrescribe si el
+usuario corrige el nombre/dosis.
+
+## Notificaciones locales
+
+`src/features/notificaciones/scheduler.ts` agrupa horarios que coinciden
+en hora exacta y mismos días (`agruparHorariosCoincidentes`) para emitir
+una sola notificación con varios medicamentos en vez de una por
+medicamento (evita fatiga de notificaciones, función tomada de
+MyTherapy — ver `docs/analisis-competencia.md`). El texto añade
+"(antes/después de comer)" cuando aplica. El mapeo de días es ISO
+(1=lunes…7=domingo) en el esquema → formato de Expo Notifications
+(0=domingo…6=sábado) vía `isoADiaExpo`.
+
+## Monetización (para cuando llegue)
+
+Banner discreto solo en pantallas no críticas (historial, ajustes).
+**Nunca** en la pantalla de alarma/confirmación de toma, ni intersticial
+al abrir la app por primera vez o justo antes de confirmar una toma —
+ver `docs/analisis-competencia.md`.
