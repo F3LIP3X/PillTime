@@ -167,16 +167,26 @@ MyTherapy — ver `docs/analisis-competencia.md`). El texto añade
 
 **`expo-notifications` no funciona en Expo Go en Android (desde SDK 53),
 ni siquiera para notificaciones locales** — hace falta una development
-build para probarlo de verdad ahí (confirmado con un dispositivo real:
-`Notifications.setNotificationHandler` lanza
-`java.io.IOException`/"Android Push notifications... removed from Expo
-Go"). Por eso `setNotificationHandler` y todo el cuerpo de
-`reprogramarNotificaciones` están envueltos en `try/catch` con
-`console.warn` — importar `scheduler.ts` o guardar un horario **nunca**
-debe lanzar solo porque el entorno no soporte notificaciones. Si al
-tocar este archivo se quita alguno de esos `try/catch` "porque ya no
-hace falta", verificarlo primero en Expo Go en Android, no solo en iOS
-o en una development build.
+build para probarlo de verdad ahí. Confirmado en dispositivo real, y en
+dos capas: primero se intentó envolver solo la llamada a
+`setNotificationHandler` en `try/catch`, pero el crash seguía — porque en
+Expo Go/Android **el simple `import * as Notifications from
+'expo-notifications'` ya lanza la excepción** ("Android Push
+notifications... removed from Expo Go") durante la propia evaluación del
+módulo, antes de que se ejecute ninguna línea propia. Un `try/catch`
+alrededor de una llamada no sirve de nada si lo que revienta es el
+`import` estático de otro módulo.
+
+Por eso `src/features/notificaciones/scheduler.ts` **no tiene un import
+estático de `expo-notifications`** — solo un `import type` (se borra en
+compilación) para conservar el tipado. La carga real es perezosa, vía
+`require('expo-notifications')` dentro de la función `cargarNotificaciones()`,
+envuelta en `try/catch` y memoizada (éxito o fallo). Si al tocar este
+archivo alguien vuelve a poner `import * as Notifications from
+'expo-notifications'` arriba del todo "porque total ya está en un
+try/catch más abajo", va a reventar exactamente igual — hay que
+verificarlo en Expo Go en Android, no solo en iOS o en una development
+build, antes de dar el cambio por bueno.
 
 ## Assets de marca (icono, adaptive icon, splash)
 
