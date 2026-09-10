@@ -29,5 +29,21 @@ export function useMedidasSalud(tipo: TipoMedidaSalud) {
     [db, tipo, recargar],
   );
 
-  return { medidas, registrar, recargar };
+  const actualizar = useCallback(
+    async (id: number, datos: { valor1?: number; valor2?: number; notas?: string; fechaHora: string }) => {
+      await db.update(medidasSalud).set(datos).where(eq(medidasSalud.id, id));
+      await recargar();
+    },
+    [db, recargar],
+  );
+
+  const eliminar = useCallback(
+    async (id: number) => {
+      await db.delete(medidasSalud).where(eq(medidasSalud.id, id));
+      await recargar();
+    },
+    [db, recargar],
+  );
+
+  return { medidas, registrar, actualizar, eliminar, recargar };
 }

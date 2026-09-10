@@ -2,13 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { desc, eq } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
-import { medicamentos, tomas } from '@/db/schema';
+import { medicamentos, tomas, type EstadoToma } from '@/db/schema';
+
+export type ItemHistorial = {
+  id: number;
+  nombreMedicamento: string;
+  fechaHoraProgramada: string;
+  estado: EstadoToma;
+  motivoOmision: string | null;
+};
 
 export function useHistorial() {
   const db = useDb();
-  const [historial, setHistorial] = useState<
-    { id: number; nombreMedicamento: string; fechaHoraProgramada: string; estado: string; motivoOmision: string | null }[]
-  >([]);
+  const [historial, setHistorial] = useState<ItemHistorial[]>([]);
 
   const recargar = useCallback(async () => {
     const filas = await db

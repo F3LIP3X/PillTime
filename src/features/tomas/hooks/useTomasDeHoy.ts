@@ -11,6 +11,7 @@ export type TomaDeHoy = {
   dosis: string;
   fechaHoraProgramada: string;
   estado: EstadoToma;
+  motivoOmision: string | null;
 };
 
 function limitesDeHoy() {
@@ -38,6 +39,7 @@ export function useTomasDeHoy() {
         dosis: medicamentos.dosis,
         fechaHoraProgramada: tomas.fechaHoraProgramada,
         estado: tomas.estado,
+        motivoOmision: tomas.motivoOmision,
       })
       .from(tomas)
       .innerJoin(medicamentos, eq(medicamentos.id, tomas.medicamentoId))

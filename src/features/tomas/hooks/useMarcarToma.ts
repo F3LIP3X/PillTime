@@ -31,5 +31,15 @@ export function useMarcarToma() {
     [db],
   );
 
-  return { marcarTomado, marcarOmitido };
+  const marcarPendiente = useCallback(
+    async (tomaId: number) => {
+      await db
+        .update(tomas)
+        .set({ estado: 'pendiente', fechaHoraRegistrada: null, motivoOmision: null })
+        .where(eq(tomas.id, tomaId));
+    },
+    [db],
+  );
+
+  return { marcarTomado, marcarOmitido, marcarPendiente };
 }
