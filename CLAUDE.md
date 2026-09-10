@@ -57,6 +57,34 @@ por feature:
   tema). Los datos persistentes viven en SQLite, nunca en un store.
 - `src/components/` — UI compartida entre features.
 
+### Pantallas (`app/`)
+
+`(tabs)` = Inicio / Historial / Medidas / Ajustes. Fuera de las tabs:
+`medicamento/nuevo`, `medicamento/[id]/{detalle,editar}`, `cita/{index,nueva}`.
+
+`app/_layout.tsx` aplica las migraciones de Drizzle **antes** de montar
+el árbol: abre una conexión de `expo-sqlite` a nivel de módulo solo para
+`useMigrations`, y por separado `SQLiteProvider` abre su propia conexión
+para los hooks de las pantallas (`useDb` → `useSQLiteContext`). Son dos
+conexiones al mismo archivo a propósito — es el patrón oficial de
+Drizzle + expo-sqlite, no una que se pueda "simplificar" a una sola sin
+romper `useMigrations`.
+
+**Las tomas del día no se precrean en segundo plano.** `useAsegurarTomasDeHoy`
+(en `app/(tabs)/index.tsx`, vía `useFocusEffect`) genera, de forma
+idempotente, las filas `pendiente` de `tomas` para los horarios activos
+que coinciden con el día de hoy, cada vez que se abre la pantalla de
+Inicio. Si la app no se abre un día, ese día no queda registrado como
+"omitido" — no hay un cron ni una tarea en segundo plano. Si esto
+cambia (por ejemplo al añadir un cumplimiento global que dependa de que
+todos los días queden registrados), hay que revisar esta función primero.
+
+**Archivar, no borrar.** `useArchivarMedicamento` pone `activo = false`
+en vez de borrar la fila; `useMedicamentos()` filtra `activo = true` por
+defecto (parámetro `soloActivos`). Un medicamento archivado sigue
+apareciendo en el historial y en `useMedicamento(id)` (detalle), solo
+desaparece del listado de Inicio.
+
 **Gestión de estado y datos:** sin React Query — no hay red que cachear,
 todo es SQLite local. El patrón es Zustand para UI + hooks propios sobre
 Drizzle para todo lo demás (decisión explícita, no un olvido de añadir
