@@ -59,8 +59,13 @@ por feature:
 
 ### Pantallas (`app/`)
 
-`(tabs)` = Inicio / Historial / Medidas / Ajustes. Fuera de las tabs:
-`medicamento/nuevo`, `medicamento/[id]/{detalle,editar}`, `cita/{index,nueva}`.
+`(tabs)` = Inicio / Medicamentos / Historial / Medidas / Ajustes. Fuera
+de las tabs: `medicamento/nuevo`, `medicamento/[id]/{detalle,editar}`,
+`cita/{index,nueva}`.
+
+`Medicamentos` es el listado completo (activos/archivados) para
+gestionar los datos de cada uno — Inicio ya no sirve para eso desde que
+solo muestra la próxima toma pendiente por medicamento.
 
 `app/_layout.tsx` aplica las migraciones de Drizzle **antes** de montar
 el árbol: abre una conexión de `expo-sqlite` a nivel de módulo solo para

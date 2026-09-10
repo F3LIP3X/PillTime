@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { House, ListChecks, Settings, Activity } from 'lucide-react-native';
+import { House, ListChecks, Settings, Activity, Pill } from 'lucide-react-native';
 
 import { useTheme } from '@/theme/useTheme';
 
@@ -22,6 +22,13 @@ export default function TabsLayout() {
         options={{
           title: 'Inicio',
           tabBarIcon: ({ color, size }) => <House color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="medicamentos"
+        options={{
+          title: 'Medicamentos',
+          tabBarIcon: ({ color, size }) => <Pill color={color} size={size} />,
         }}
       />
       <Tabs.Screen
