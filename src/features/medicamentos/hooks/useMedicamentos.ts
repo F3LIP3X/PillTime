@@ -15,7 +15,8 @@ export type MedicamentoConStock = {
   activo: boolean;
 };
 
-export function useMedicamentos() {
+export function useMedicamentos(opciones: { soloActivos?: boolean } = {}) {
+  const { soloActivos = true } = opciones;
   const db = useDb();
   const [medicamentosData, setMedicamentosData] = useState<MedicamentoConStock[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -36,6 +37,7 @@ export function useMedicamentos() {
       })
       .from(medicamentos)
       .leftJoin(tomas, eq(tomas.medicamentoId, medicamentos.id))
+      .where(soloActivos ? eq(medicamentos.activo, true) : undefined)
       .groupBy(medicamentos.id)
       .orderBy(medicamentos.nombre);
 
@@ -46,7 +48,7 @@ export function useMedicamentos() {
       })),
     );
     setCargando(false);
-  }, [db]);
+  }, [db, soloActivos]);
 
   useEffect(() => {
     recargar();
