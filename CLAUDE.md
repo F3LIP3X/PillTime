@@ -49,8 +49,8 @@ por feature:
 - `src/db/` — `schema.ts` (Drizzle) y `client.ts` (hook `useDb()` sobre
   `expo-sqlite`).
 - `src/features/<feature>/{hooks,components}` — un hook por operación de
-  lectura/escritura sobre Drizzle (`useMedicamentos`, `useTomasDeHoy`,
-  etc.), sin capa de servicio intermedia.
+  lectura/escritura sobre Drizzle (`useMedicamentos`,
+  `useProximaTomaPorMedicamento`, etc.), sin capa de servicio intermedia.
 - `src/theme/` — paleta "Teal Trust", tipografía y espaciado
   (`docs/plan-tecnico-diseno.md`), con `useTheme()` para claro/oscuro.
 - `src/stores/` — Zustand, **solo estado de UI** (p. ej. preferencia de
@@ -84,6 +84,21 @@ en vez de borrar la fila; `useMedicamentos()` filtra `activo = true` por
 defecto (parámetro `soloActivos`). Un medicamento archivado sigue
 apareciendo en el historial y en `useMedicamento(id)` (detalle), solo
 desaparece del listado de Inicio.
+
+**Inicio muestra una tarjeta por medicamento (su próxima toma pendiente),
+no una lista de todas las tomas de hoy.** Decisión explícita del usuario
+tras probar la primera versión (que sí listaba todas las tomas de hoy) y
+resultarle confusa — con un tratamiento "cada 8 horas" se veían 3
+tarjetas del mismo medicamento el mismo día. `useProximaTomaPorMedicamento`
+trae, por cada medicamento activo, su toma `'pendiente'` más antigua sin
+resolver (puede ser de hoy, atrasada de un día anterior, o incluso de
+mañana si un tratamiento por intervalo aún no tiene ninguna pendiente
+antes) — no se limita a "hoy". Al marcar Tomado/Omitido, esa toma deja de
+ser `'pendiente'` y la recarga trae automáticamente la siguiente del
+mismo medicamento (si la hay), dando la sensación de "avanzar" tarjeta a
+tarjeta. Si se te ocurre volver a listar "todas las tomas de hoy" en
+Inicio, es un cambio de producto consciente, no una vuelta atrás sin
+más — coméntalo primero.
 
 **Gestión de estado y datos:** sin React Query — no hay red que cachear,
 todo es SQLite local. El patrón es Zustand para UI + hooks propios sobre

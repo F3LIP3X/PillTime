@@ -8,7 +8,7 @@ import { Card } from '@/components/Card';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
-import { useTomasDeHoy, type TomaDeHoy } from '@/features/tomas/hooks/useTomasDeHoy';
+import { useProximaTomaPorMedicamento, type ProximaToma } from '@/features/tomas/hooks/useProximaTomaPorMedicamento';
 import { useAsegurarTomasDeHoy } from '@/features/tomas/hooks/useAsegurarTomasDeHoy';
 import { useMarcarToma } from '@/features/tomas/hooks/useMarcarToma';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
@@ -16,31 +16,49 @@ import { EditarTomaModal } from '@/features/tomas/components/EditarTomaModal';
 
 const UMBRAL_STOCK_BAJO = 5;
 
-function horaDe(fechaIso: string) {
-  return new Date(fechaIso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+function esMismoDia(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** "Hoy 09:00", "Mañana 09:00", "Ayer 09:00" o la fecha completa si está más lejos. */
+function etiquetaFechaHora(fechaIso: string) {
+  const fecha = new Date(fechaIso);
+  const hora = fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const hoy = new Date();
+  const manana = new Date(hoy);
+  manana.setDate(hoy.getDate() + 1);
+  const ayer = new Date(hoy);
+  ayer.setDate(hoy.getDate() - 1);
+
+  if (esMismoDia(fecha, hoy)) return `Hoy ${hora}`;
+  if (esMismoDia(fecha, manana)) return `Mañana ${hora}`;
+  if (esMismoDia(fecha, ayer)) return `Ayer ${hora}`;
+  return `${fecha.toLocaleDateString('es-ES')} ${hora}`;
 }
 
 export default function Inicio() {
   const { colors } = useTheme();
   const router = useRouter();
   const asegurarTomasDeHoy = useAsegurarTomasDeHoy();
-  const { tomasDeHoy, recargar: recargarTomas } = useTomasDeHoy();
+  const { proximas, recargar: recargarProximas } = useProximaTomaPorMedicamento();
   const { medicamentos } = useMedicamentos();
   const { marcarTomado, marcarOmitido } = useMarcarToma();
-  const [tomaEditando, setTomaEditando] = useState<TomaDeHoy | null>(null);
+  const [tomaEditando, setTomaEditando] = useState<ProximaToma | null>(null);
 
   const medicamentosConStockBajo = medicamentos.filter((m) => m.stockRestante <= UMBRAL_STOCK_BAJO);
 
   useFocusEffect(
     useCallback(() => {
-      asegurarTomasDeHoy().then(recargarTomas);
-    }, [asegurarTomasDeHoy, recargarTomas]),
+      asegurarTomasDeHoy().then(recargarProximas);
+    }, [asegurarTomasDeHoy, recargarProximas]),
   );
 
-  const handleMarcar = async (toma: TomaDeHoy, tomado: boolean) => {
+  const handleMarcar = async (toma: ProximaToma, tomado: boolean) => {
     if (tomado) await marcarTomado(toma.id);
     else await marcarOmitido(toma.id);
-    await recargarTomas();
+    // Al marcarla deja de ser 'pendiente', así que la próxima recarga ya
+    // trae la siguiente toma pendiente de ESTE medicamento (si la hay).
+    await recargarProximas();
   };
 
   return (
@@ -59,18 +77,20 @@ export default function Inicio() {
       )}
 
       <FlatList
-        data={tomasDeHoy}
-        keyExtractor={(item) => String(item.id)}
+        data={proximas}
+        keyExtractor={(item) => String(item.medicamentoId)}
         contentContainerStyle={styles.lista}
         ListEmptyComponent={
           <Text style={[typography.body, { color: colors.textSecondary }]}>
-            No hay tomas programadas para hoy.
+            No hay tomas pendientes. Añade un medicamento para empezar.
           </Text>
         }
         renderItem={({ item }) => (
           <Card>
             <View style={styles.cabecera}>
-              <Text style={[typography.subtitle, { color: colors.text }]}>{horaDe(item.fechaHoraProgramada)}</Text>
+              <Text style={[typography.subtitle, { color: colors.text }]}>
+                {etiquetaFechaHora(item.fechaHoraProgramada)}
+              </Text>
               <Pressable
                 onPress={() => setTomaEditando(item)}
                 accessibilityRole="button"
@@ -83,16 +103,10 @@ export default function Inicio() {
             <Text style={[typography.body, { color: colors.text }]}>
               {item.nombreMedicamento} — {item.dosis}
             </Text>
-            {item.estado === 'pendiente' ? (
-              <View style={styles.acciones}>
-                <Button label="Tomado" onPress={() => handleMarcar(item, true)} />
-                <Button label="Omitir" variant="secondary" onPress={() => handleMarcar(item, false)} />
-              </View>
-            ) : (
-              <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                {item.estado === 'tomado' ? 'Tomado' : 'Omitido'}
-              </Text>
-            )}
+            <View style={styles.acciones}>
+              <Button label="Tomado" onPress={() => handleMarcar(item, true)} />
+              <Button label="Omitir" variant="secondary" onPress={() => handleMarcar(item, false)} />
+            </View>
           </Card>
         )}
       />
@@ -106,7 +120,7 @@ export default function Inicio() {
       <EditarTomaModal
         toma={tomaEditando}
         onClose={() => setTomaEditando(null)}
-        onCambiado={recargarTomas}
+        onCambiado={recargarProximas}
       />
     </View>
   );
