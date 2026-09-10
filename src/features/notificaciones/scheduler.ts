@@ -1,10 +1,16 @@
 import type * as NotificacionesTipo from 'expo-notifications';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import type { Db } from '@/db/client';
 import { horariosMedicamento, medicamentos, type MomentoComida } from '@/db/schema';
+
+type TomaProgramada = {
+  fechaHoraProgramada: string;
+  nombreMedicamento: string;
+  momentoComida: MomentoComida | null;
+};
 
 type ModuloNotificaciones = typeof NotificacionesTipo;
 
@@ -132,10 +138,22 @@ function contenidoDeGrupo(grupo: GrupoNotificacion) {
 }
 
 /**
- * Reprograma TODAS las notificaciones locales a partir de los horarios
- * activos. Se cancela todo lo anterior primero: es más simple y fiable que
- * calcular un diff, y el volumen de notificaciones programadas por un uso
- * doméstico normal es bajo.
+ * Reprograma TODAS las notificaciones de horarios 'semanal' (medicación
+ * crónica) a partir de los horarios activos. Se cancela todo lo anterior
+ * primero: es más simple y fiable que calcular un diff, y el volumen de
+ * notificaciones programadas por un uso doméstico normal es bajo.
+ *
+ * LIMITACIÓN CONOCIDA: `cancelAllScheduledNotificationsAsync()` cancela
+ * TODO lo que haya programado en el sistema, incluidas las notificaciones
+ * puntuales de un tratamiento por intervalo (`programarNotificacionesTratamiento`).
+ * Si el usuario tiene un tratamiento en curso y luego da de alta un
+ * medicamento crónico nuevo, esta función se llama y borra sin querer los
+ * recordatorios pendientes de ese tratamiento. Arreglarlo bien exige
+ * guardar los identificadores de notificación devueltos por
+ * `scheduleNotificationAsync` (p. ej. en la propia fila de `tomas`) para
+ * cancelar solo lo que corresponde a horarios 'semanal', en vez de cancelar
+ * todo — no se ha hecho todavía porque solo se puede reproducir con
+ * notificaciones realmente funcionando (development build), no en Expo Go.
  *
  * Nunca lanza: si expo-notifications no está disponible en el entorno
  * actual (Expo Go en Android desde SDK 53 — hace falta una development
@@ -159,9 +177,14 @@ export async function reprogramarNotificaciones(db: Db) {
       })
       .from(horariosMedicamento)
       .innerJoin(medicamentos, eq(medicamentos.id, horariosMedicamento.medicamentoId))
-      .where(eq(horariosMedicamento.activo, true));
+      .where(and(eq(horariosMedicamento.activo, true), eq(horariosMedicamento.tipo, 'semanal')));
 
-    const grupos = agruparHorariosCoincidentes(filas);
+    // 'semanal' garantiza hora/diasSemana no nulos a nivel de aplicación
+    // (ver comentario en schema.ts), pero el tipo de columna sigue siendo
+    // nullable — de ahí el `!`.
+    const grupos = agruparHorariosCoincidentes(
+      filas.map((f) => ({ ...f, hora: f.hora!, diasSemana: f.diasSemana! })),
+    );
 
     for (const grupo of grupos) {
       const [hour, minute] = grupo.hora.split(':').map(Number);
@@ -181,5 +204,39 @@ export async function reprogramarNotificaciones(db: Db) {
     }
   } catch (error) {
     console.warn('No se pudieron reprogramar las notificaciones:', error);
+  }
+}
+
+/**
+ * Programa una notificación puntual (no recurrente) por cada toma de un
+ * tratamiento por intervalo recién creado — a diferencia de 'semanal', no
+ * hay "grupo horario" que reprogramar: cada toma ya tiene su
+ * fecha/hora exacta calculada de antemano (ver useCrearTratamientoIntervalo),
+ * así que cada una es un trigger de tipo DATE independiente. No agrupa
+ * con otras tomas coincidentes de otros medicamentos (a diferencia de
+ * `reprogramarNotificaciones`) — simplificación aceptada mientras el
+ * volumen de tratamientos simultáneos sea bajo.
+ *
+ * Nunca lanza, por la misma razón que reprogramarNotificaciones.
+ */
+export async function programarNotificacionesTratamiento(tomasProgramadas: TomaProgramada[]) {
+  const Notifications = cargarNotificaciones();
+  if (!Notifications) return;
+
+  try {
+    for (const toma of tomasProgramadas) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Es hora de tu medicamento',
+          body: `${toma.nombreMedicamento}${textoMomentoComida(toma.momentoComida)}`,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(toma.fechaHoraProgramada),
+        },
+      });
+    }
+  } catch (error) {
+    console.warn('No se pudieron programar las notificaciones del tratamiento:', error);
   }
 }

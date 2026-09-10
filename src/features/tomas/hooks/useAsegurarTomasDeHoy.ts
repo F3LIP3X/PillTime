@@ -18,14 +18,20 @@ function diaIsoDeHoy(): number {
 
 /**
  * Genera (si no existen ya) las tomas 'pendiente' del día para cada horario
- * activo cuyo día de la semana coincida con hoy. Idempotente: se puede
- * llamar en cada apertura de la pantalla de Inicio sin duplicar filas,
- * porque comprueba antes si ya existe una toma para ese horario en la
- * fecha/hora exacta de hoy.
+ * 'semanal' activo cuyo día de la semana coincida con hoy. Idempotente: se
+ * puede llamar en cada apertura de la pantalla de Inicio sin duplicar
+ * filas, porque comprueba antes si ya existe una toma para ese horario en
+ * la fecha/hora exacta de hoy.
  *
- * No hay un job en segundo plano que precree tomas futuras: se
- * materializan perezosamente al abrir la app. Si la app no se abre un
- * día, ese día no queda registrado como "omitido" automáticamente.
+ * Solo procesa horarios tipo='semanal' — los de tipo='intervalo' (un
+ * tratamiento con duración fija, ej. "cada 8 horas durante 7 días") ya
+ * tienen TODAS sus tomas generadas de una vez al crearse
+ * (useCrearTratamientoIntervalo), no día a día.
+ *
+ * No hay un job en segundo plano que precree tomas futuras de los
+ * horarios 'semanal': se materializan perezosamente al abrir la app. Si
+ * la app no se abre un día, ese día no queda registrado como "omitido"
+ * automáticamente.
  */
 export function useAsegurarTomasDeHoy() {
   const db = useDb();
@@ -42,13 +48,22 @@ export function useAsegurarTomasDeHoy() {
       })
       .from(horariosMedicamento)
       .innerJoin(medicamentos, eq(medicamentos.id, horariosMedicamento.medicamentoId))
-      .where(and(eq(horariosMedicamento.activo, true), eq(medicamentos.activo, true)));
+      .where(
+        and(
+          eq(horariosMedicamento.activo, true),
+          eq(horariosMedicamento.tipo, 'semanal'),
+          eq(medicamentos.activo, true),
+        ),
+      );
 
     for (const horario of horarios) {
-      const dias = horario.diasSemana.split(',').map(Number);
+      // tipo='semanal' garantiza hora/diasSemana no nulos a nivel de
+      // aplicación (ver comentario en schema.ts), aunque la columna sea
+      // nullable — de ahí los `!`.
+      const dias = horario.diasSemana!.split(',').map(Number);
       if (!dias.includes(diaIso)) continue;
 
-      const fechaHoraProgramada = fechaDeHoyA(horario.hora).toISOString();
+      const fechaHoraProgramada = fechaDeHoyA(horario.hora!).toISOString();
 
       const [existente] = await db
         .select({ id: tomas.id })

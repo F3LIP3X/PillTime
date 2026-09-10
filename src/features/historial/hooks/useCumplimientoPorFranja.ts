@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { eq, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { horariosMedicamento, tomas } from '@/db/schema';
@@ -20,6 +20,11 @@ export type CumplimientoFranja = {
  * `tomas.horarioId`) porque no tienen una franja a la que atribuirse.
  * Esas tomas SÍ deben contarse en un futuro "cumplimiento global", pero
  * NO en este informe por franja — no es un olvido, es a propósito.
+ *
+ * También excluye los horarios tipo='intervalo' (tratamientos con
+ * duración fija): no tienen una `hora` de franja fija — cada toma cae en
+ * un instante distinto calculado desde el inicio del tratamiento —, así
+ * que "franja horaria" no es un concepto que les aplique.
  */
 export function useCumplimientoPorFranja() {
   const db = useDb();
@@ -38,15 +43,23 @@ export function useCumplimientoPorFranja() {
       })
       .from(tomas)
       .innerJoin(horariosMedicamento, eq(horariosMedicamento.id, tomas.horarioId))
-      // Redundante con el INNER JOIN (que ya excluye horarioId null), pero
-      // explícito a propósito: que la exclusión sea visible en el código,
-      // no solo una consecuencia implícita del tipo de join.
-      .where(isNotNull(tomas.horarioId))
+      .where(
+        and(
+          // Redundante con el INNER JOIN (que ya excluye horarioId null), pero
+          // explícito a propósito: que la exclusión sea visible en el código,
+          // no solo una consecuencia implícita del tipo de join.
+          isNotNull(tomas.horarioId),
+          eq(horariosMedicamento.tipo, 'semanal'),
+        ),
+      )
       .groupBy(horariosMedicamento.id);
 
     setDatos(
+      // tipo='semanal' garantiza `hora` no nulo a nivel de aplicación
+      // (ver schema.ts), aunque la columna sea nullable — de ahí el `!`.
       filas.map((f) => ({
         ...f,
+        hora: f.hora!,
         porcentaje: f.totalProgramadas === 0 ? 0 : Math.round((f.totalTomadas / f.totalProgramadas) * 100),
       })),
     );

@@ -11,6 +11,7 @@ export function useCrearHorario() {
     async (datos: { medicamentoId: number; hora: string; diasSemana: number[] }) => {
       await db.insert(horariosMedicamento).values({
         medicamentoId: datos.medicamentoId,
+        tipo: 'semanal',
         hora: datos.hora,
         diasSemana: datos.diasSemana.join(','),
       });
