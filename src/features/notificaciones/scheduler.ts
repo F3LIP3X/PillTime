@@ -1,30 +1,49 @@
 import type * as NotificacionesTipo from 'expo-notifications';
 import { eq } from 'drizzle-orm';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 import type { Db } from '@/db/client';
 import { horariosMedicamento, medicamentos, type MomentoComida } from '@/db/schema';
 
 type ModuloNotificaciones = typeof NotificacionesTipo;
 
-// undefined = todavía no se ha intentado cargar; null = se intentó y falló.
+// undefined = todavía no se ha intentado cargar; null = se intentó y falló
+// (o se descartó a propósito, ver ES_EXPO_GO_ANDROID más abajo).
 let notificacionesCache: ModuloNotificaciones | null | undefined;
 
 /**
- * Carga expo-notifications de forma perezosa y protegida.
- *
  * En Android dentro de Expo Go (no una development build), el simple
- * `import`/`require` de este paquete lanza "Android Push notifications...
- * removed from Expo Go" desde SDK 53 — ANTES de llamar a ninguna función,
- * durante la propia evaluación del módulo. Por eso arriba solo hay un
- * `import type` (se borra en compilación, nunca toca el runtime): un
- * try/catch alrededor de una llamada no sirve de nada si lo que revienta
- * es el import estático de otro módulo. Aquí se difiere con require()
- * dentro de una función, que sí se puede envolver en try/catch, y se
- * memoiza el resultado (incluido el fallo) para no reintentarlo en cada
- * llamada.
+ * `require('expo-notifications')` lanza "Android Push notifications...
+ * removed from Expo Go" desde SDK 53 durante la propia evaluación del
+ * módulo — antes de ejecutar ninguna línea propia. Un try/catch alrededor
+ * SÍ evita que la excepción tumbe la app, pero no evita que el propio
+ * sistema de módulos de Metro (`guardedLoadModule`) reporte igualmente el
+ * fallo como "Uncaught Error" en el LogBox (solo en dev, no pasa en
+ * producción ni en una development build real). Para no generar ese
+ * aviso falsamente alarmante en cada intento, se detecta Expo Go en
+ * Android de antemano con `expo-constants` y directamente NO se intenta
+ * cargar el paquete ahí — no es solo "cargar y capturar el error".
+ *
+ * `Constants.appOwnership === 'expo'` está deprecado a favor de
+ * `executionEnvironment`, pero ese nuevo valor (`StoreClient`) agrupa
+ * Expo Go CON las development builds — y en una development build
+ * expo-notifications sí funciona, así que usarlo aquí apagaría
+ * notificaciones también donde sí deberían funcionar. `appOwnership`
+ * sigue siendo la señal correcta para este caso concreto.
  */
+const ES_EXPO_GO_ANDROID = Platform.OS === 'android' && Constants.appOwnership === 'expo';
+
 function cargarNotificaciones(): ModuloNotificaciones | null {
   if (notificacionesCache !== undefined) return notificacionesCache;
+
+  if (ES_EXPO_GO_ANDROID) {
+    console.warn(
+      'expo-notifications no está disponible en Expo Go para Android (SDK 53+); hace falta una development build. Ver CLAUDE.md.',
+    );
+    notificacionesCache = null;
+    return notificacionesCache;
+  }
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -39,7 +58,7 @@ function cargarNotificaciones(): ModuloNotificaciones | null {
     });
     notificacionesCache = modulo;
   } catch (error) {
-    console.warn('expo-notifications no está disponible en este entorno (¿Expo Go en Android?):', error);
+    console.warn('expo-notifications no está disponible en este entorno:', error);
     notificacionesCache = null;
   }
 
