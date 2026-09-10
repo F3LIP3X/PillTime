@@ -41,7 +41,7 @@ export default function Inicio() {
   const router = useRouter();
   const asegurarTomasDeHoy = useAsegurarTomasDeHoy();
   const { proximas, recargar: recargarProximas } = useProximaTomaPorMedicamento();
-  const { medicamentos } = useMedicamentos();
+  const { medicamentos, recargar: recargarMedicamentos } = useMedicamentos();
   const { marcarTomado, marcarOmitido } = useMarcarToma();
   const [tomaEditando, setTomaEditando] = useState<ProximaToma | null>(null);
 
@@ -50,7 +50,8 @@ export default function Inicio() {
   useFocusEffect(
     useCallback(() => {
       asegurarTomasDeHoy().then(recargarProximas);
-    }, [asegurarTomasDeHoy, recargarProximas]),
+      recargarMedicamentos();
+    }, [asegurarTomasDeHoy, recargarProximas, recargarMedicamentos]),
   );
 
   const handleMarcar = async (toma: ProximaToma, tomado: boolean) => {

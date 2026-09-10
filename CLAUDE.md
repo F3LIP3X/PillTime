@@ -105,6 +105,22 @@ tarjeta. Si se te ocurre volver a listar "todas las tomas de hoy" en
 Inicio, es un cambio de producto consciente, no una vuelta atrás sin
 más — coméntalo primero.
 
+**Cada pantalla que lee datos mutables desde otra pantalla necesita
+`useFocusEffect` llamando a su propio `recargar()`.** Expo Router (como
+React Navigation) no desmonta una pantalla al volver a ella con
+`router.back()` — se queda montada en la pila. Un hook que solo hace
+`useEffect(() => { recargar() }, [db])` (fetch al montar) se queda con
+datos viejos si la mutación pasó en OTRA pantalla mientras tanto: bug
+real reportado por el usuario (editó el stock de un medicamento en
+`editar.tsx`, y `index.tsx`/`medicamento/[id]/detalle.tsx` seguían
+mostrando el valor antiguo al volver, porque su `useMedicamentos()`/
+`useMedicamento()` no se había vuelto a llamar). Todas las pantallas de
+`(tabs)` y de detalle que muestran datos que se pueden editar desde otra
+pantalla (Inicio, Medicamentos, Historial, `medicamento/[id]/detalle`)
+ya tienen este `useFocusEffect`; si añades una pantalla nueva que lee
+`medicamentos`/`tomas`/etc., replica el patrón en vez de confiar en el
+fetch inicial del hook.
+
 **Gestión de estado y datos:** sin React Query — no hay red que cachear,
 todo es SQLite local. El patrón es Zustand para UI + hooks propios sobre
 Drizzle para todo lo demás (decisión explícita, no un olvido de añadir

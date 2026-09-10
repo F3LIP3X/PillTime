@@ -1,5 +1,6 @@
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -23,11 +24,21 @@ export default function DetalleMedicamento() {
   const medicamentoId = Number(id);
   const router = useRouter();
   const { colors } = useTheme();
-  const { medicamento, horarios } = useMedicamento(medicamentoId);
-  const { medicamentos: conStock } = useMedicamentos({ soloActivos: false });
+  const { medicamento, horarios, recargar: recargarMedicamento } = useMedicamento(medicamentoId);
+  const { medicamentos: conStock, recargar: recargarStock } = useMedicamentos({ soloActivos: false });
   const archivar = useArchivarMedicamento();
 
   const stock = conStock.find((m) => m.id === medicamentoId);
+
+  // Expo Router no desmonta esta pantalla al volver de "Editar" (usa
+  // router.back()), así que un fetch de solo-montaje se quedaría con los
+  // datos viejos. Se refresca cada vez que la pantalla recupera el foco.
+  useFocusEffect(
+    useCallback(() => {
+      recargarMedicamento();
+      recargarStock();
+    }, [recargarMedicamento, recargarStock]),
+  );
 
   if (!medicamento) return null;
 

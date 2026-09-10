@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { Pencil } from 'lucide-react-native';
 
@@ -26,6 +27,12 @@ export default function Historial() {
   const { historial, recargar } = useHistorial();
   const [exportando, setExportando] = useState(false);
   const [tomaEditando, setTomaEditando] = useState<ItemHistorial | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      recargar();
+    }, [recargar]),
+  );
 
   const handleExportar = async () => {
     setExportando(true);
