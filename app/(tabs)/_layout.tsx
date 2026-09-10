@@ -28,6 +28,9 @@ export default function TabsLayout() {
         name="medicamentos"
         options={{
           title: 'Medicamentos',
+          // Etiqueta más corta que el título para que no se corte en la
+          // barra de pestañas (con 5 pestañas hay poco espacio cada una).
+          tabBarLabel: 'Fármacos',
           tabBarIcon: ({ color, size }) => <Pill color={color} size={size} />,
         }}
       />
