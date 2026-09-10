@@ -1,26 +1,49 @@
-import * as Notifications from 'expo-notifications';
+import type * as NotificacionesTipo from 'expo-notifications';
 import { eq } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
 import { horariosMedicamento, medicamentos, type MomentoComida } from '@/db/schema';
 
-try {
-  // En Android dentro de Expo Go (no una development build) esta llamada
-  // lanza "Android Push notifications... removed from Expo Go" desde
-  // SDK 53, aunque solo usemos notificaciones locales — es una limitación
-  // conocida de Expo Go, no un bug nuestro. Se captura para que importar
-  // este módulo nunca tumbe la pantalla que lo usa (p. ej. alta de
-  // medicamento); en una development build o en producción esto no salta.
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
-} catch (error) {
-  console.warn('No se pudo configurar el manejador de notificaciones:', error);
+type ModuloNotificaciones = typeof NotificacionesTipo;
+
+// undefined = todavía no se ha intentado cargar; null = se intentó y falló.
+let notificacionesCache: ModuloNotificaciones | null | undefined;
+
+/**
+ * Carga expo-notifications de forma perezosa y protegida.
+ *
+ * En Android dentro de Expo Go (no una development build), el simple
+ * `import`/`require` de este paquete lanza "Android Push notifications...
+ * removed from Expo Go" desde SDK 53 — ANTES de llamar a ninguna función,
+ * durante la propia evaluación del módulo. Por eso arriba solo hay un
+ * `import type` (se borra en compilación, nunca toca el runtime): un
+ * try/catch alrededor de una llamada no sirve de nada si lo que revienta
+ * es el import estático de otro módulo. Aquí se difiere con require()
+ * dentro de una función, que sí se puede envolver en try/catch, y se
+ * memoiza el resultado (incluido el fallo) para no reintentarlo en cada
+ * llamada.
+ */
+function cargarNotificaciones(): ModuloNotificaciones | null {
+  if (notificacionesCache !== undefined) return notificacionesCache;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const modulo = require('expo-notifications') as ModuloNotificaciones;
+    modulo.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+    notificacionesCache = modulo;
+  } catch (error) {
+    console.warn('expo-notifications no está disponible en este entorno (¿Expo Go en Android?):', error);
+    notificacionesCache = null;
+  }
+
+  return notificacionesCache;
 }
 
 type HorarioConMedicamento = {
@@ -95,13 +118,16 @@ function contenidoDeGrupo(grupo: GrupoNotificacion) {
  * calcular un diff, y el volumen de notificaciones programadas por un uso
  * doméstico normal es bajo.
  *
- * Nunca lanza: si las notificaciones no están disponibles en el entorno
+ * Nunca lanza: si expo-notifications no está disponible en el entorno
  * actual (Expo Go en Android desde SDK 53 — hace falta una development
  * build ahí — o el usuario denegó el permiso), se registra un aviso y se
- * continúa. Guardar un medicamento/horario en SQLite no debe depender de
- * que la programación de notificaciones tenga éxito.
+ * continúa sin programar nada. Guardar un medicamento/horario en SQLite
+ * no debe depender de que la programación de notificaciones tenga éxito.
  */
 export async function reprogramarNotificaciones(db: Db) {
+  const Notifications = cargarNotificaciones();
+  if (!Notifications) return;
+
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
 
