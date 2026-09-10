@@ -10,6 +10,7 @@ import { BarcodeScannerView } from '@/features/codigo-barras/components/BarcodeS
 import { useBarcodeLookup } from '@/features/codigo-barras/hooks/useBarcodeLookup';
 import { useCrearMedicamento } from '@/features/medicamentos/hooks/useCrearMedicamento';
 import { useCrearHorario } from '@/features/medicamentos/hooks/useCrearHorario';
+import { useCrearTratamientoIntervalo } from '@/features/medicamentos/hooks/useCrearTratamientoIntervalo';
 import { useTheme } from '@/theme/useTheme';
 import { spacing, MIN_TOUCH_TARGET } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -36,7 +37,10 @@ export default function NuevoMedicamento() {
   const router = useRouter();
   const crearMedicamento = useCrearMedicamento();
   const crearHorario = useCrearHorario();
+  const crearTratamientoIntervalo = useCrearTratamientoIntervalo();
   const buscarCodigoBarras = useBarcodeLookup();
+
+  const [modo, setModo] = useState<'cronico' | 'tratamiento'>('cronico');
 
   const [nombre, setNombre] = useState('');
   const [dosis, setDosis] = useState('');
@@ -45,8 +49,16 @@ export default function NuevoMedicamento() {
   const [momentoComida, setMomentoComida] = useState<MomentoComida>('ninguno');
   const [notas, setNotas] = useState('');
   const [codigoBarras, setCodigoBarras] = useState('');
+
+  // Modo 'cronico' (horario 'semanal'): hora fija + días de la semana, indefinido.
   const [hora, setHora] = useState(new Date());
   const [diasSeleccionados, setDiasSeleccionados] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
+
+  // Modo 'tratamiento' (horario 'intervalo'): frecuencia + duración, con fin.
+  const [fechaInicio, setFechaInicio] = useState(new Date());
+  const [frecuenciaHoras, setFrecuenciaHoras] = useState('8');
+  const [duracionDias, setDuracionDias] = useState('7');
+
   const [escaneando, setEscaneando] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
@@ -66,10 +78,12 @@ export default function NuevoMedicamento() {
   };
 
   const handleGuardar = async () => {
-    if (!nombre.trim() || !dosis.trim() || diasSeleccionados.length === 0) return;
+    if (!nombre.trim() || !dosis.trim()) return;
+    if (modo === 'cronico' && diasSeleccionados.length === 0) return;
+    if (modo === 'tratamiento' && (!Number(frecuenciaHoras) || !Number(duracionDias))) return;
+
     setGuardando(true);
     try {
-      const horaTexto = `${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}`;
       const medicamento = await crearMedicamento({
         nombre: nombre.trim(),
         dosis: dosis.trim(),
@@ -79,7 +93,20 @@ export default function NuevoMedicamento() {
         codigoBarras: codigoBarras.trim() || undefined,
         notas: notas.trim() || undefined,
       });
-      await crearHorario({ medicamentoId: medicamento.id, hora: horaTexto, diasSemana: diasSeleccionados });
+
+      if (modo === 'cronico') {
+        const horaTexto = `${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}`;
+        await crearHorario({ medicamentoId: medicamento.id, hora: horaTexto, diasSemana: diasSeleccionados });
+      } else {
+        await crearTratamientoIntervalo({
+          medicamentoId: medicamento.id,
+          nombreMedicamento: medicamento.nombre,
+          momentoComida: medicamento.momentoComida,
+          fechaHoraInicio: fechaInicio,
+          frecuenciaHoras: Number(frecuenciaHoras),
+          duracionDias: Number(duracionDias),
+        });
+      }
       router.back();
     } finally {
       setGuardando(false);
@@ -138,44 +165,109 @@ export default function NuevoMedicamento() {
       </View>
 
       <View>
-        <Text style={[typography.caption, { color: colors.textSecondary }]}>Hora de la toma</Text>
-        <DateTimeField label="Hora" mode="time" value={hora} onChange={setHora} />
-      </View>
-
-      <View>
-        <Text style={[typography.caption, { color: colors.textSecondary }]}>Días</Text>
+        <Text style={[typography.caption, { color: colors.textSecondary }]}>Pauta</Text>
         <View style={styles.opciones}>
-          {DIAS_SEMANA.map((dia) => (
-            <Pressable
-              key={dia.iso}
-              onPress={() => alternarDia(dia.iso)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: diasSeleccionados.includes(dia.iso) }}
-              accessibilityLabel={dia.etiqueta}
-              style={[
-                styles.diaChip,
-                {
-                  backgroundColor: diasSeleccionados.includes(dia.iso)
-                    ? colors.secondary
-                    : esOscuro
-                      ? '#1B2626'
-                      : '#FFFFFF',
-                  borderColor: colors.textSecondary + '33',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  typography.bodySmall,
-                  { color: diasSeleccionados.includes(dia.iso) ? '#FFFFFF' : colors.text },
-                ]}
-              >
-                {dia.etiqueta}
-              </Text>
-            </Pressable>
-          ))}
+          <Pressable
+            onPress={() => setModo('cronico')}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: modo === 'cronico' }}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: modo === 'cronico' ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
+                borderColor: colors.textSecondary + '33',
+              },
+            ]}
+          >
+            <Text style={[typography.bodySmall, { color: modo === 'cronico' ? '#FFFFFF' : colors.text }]}>
+              Crónico (días fijos)
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setModo('tratamiento')}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: modo === 'tratamiento' }}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: modo === 'tratamiento' ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
+                borderColor: colors.textSecondary + '33',
+              },
+            ]}
+          >
+            <Text style={[typography.bodySmall, { color: modo === 'tratamiento' ? '#FFFFFF' : colors.text }]}>
+              Tratamiento (cada X horas)
+            </Text>
+          </Pressable>
         </View>
       </View>
+
+      {modo === 'cronico' ? (
+        <>
+          <View>
+            <Text style={[typography.caption, { color: colors.textSecondary }]}>Hora de la toma</Text>
+            <DateTimeField label="Hora" mode="time" value={hora} onChange={setHora} />
+          </View>
+
+          <View>
+            <Text style={[typography.caption, { color: colors.textSecondary }]}>Días</Text>
+            <View style={styles.opciones}>
+              {DIAS_SEMANA.map((dia) => (
+                <Pressable
+                  key={dia.iso}
+                  onPress={() => alternarDia(dia.iso)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: diasSeleccionados.includes(dia.iso) }}
+                  accessibilityLabel={dia.etiqueta}
+                  style={[
+                    styles.diaChip,
+                    {
+                      backgroundColor: diasSeleccionados.includes(dia.iso)
+                        ? colors.secondary
+                        : esOscuro
+                          ? '#1B2626'
+                          : '#FFFFFF',
+                      borderColor: colors.textSecondary + '33',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.bodySmall,
+                      { color: diasSeleccionados.includes(dia.iso) ? '#FFFFFF' : colors.text },
+                    ]}
+                  >
+                    {dia.etiqueta}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={styles.fila}>
+            <TextField
+              label="Cada cuántas horas"
+              keyboardType="numeric"
+              value={frecuenciaHoras}
+              onChangeText={setFrecuenciaHoras}
+              style={styles.mitad}
+            />
+            <TextField
+              label="Duración (días)"
+              keyboardType="numeric"
+              value={duracionDias}
+              onChangeText={setDuracionDias}
+              style={styles.mitad}
+            />
+          </View>
+          <View style={styles.fila}>
+            <DateTimeField label="Fecha primera toma" mode="date" value={fechaInicio} onChange={setFechaInicio} />
+            <DateTimeField label="Hora primera toma" mode="time" value={fechaInicio} onChange={setFechaInicio} />
+          </View>
+        </>
+      )}
 
       <View style={styles.fila}>
         <TextField

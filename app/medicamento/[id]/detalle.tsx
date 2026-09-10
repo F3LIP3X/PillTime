@@ -52,15 +52,23 @@ export default function DetalleMedicamento() {
 
       <Card>
         <Text style={[typography.subtitle, { color: colors.text }]}>Horarios</Text>
-        {horarios.map((horario) => (
-          <Text key={horario.id} style={[typography.body, { color: colors.text }]}>
-            {horario.hora} —{' '}
-            {horario.diasSemana
-              .split(',')
-              .map((d) => ETIQUETA_DIA[Number(d)])
-              .join(' ')}
-          </Text>
-        ))}
+        {horarios.map((horario) =>
+          horario.tipo === 'semanal' ? (
+            <Text key={horario.id} style={[typography.body, { color: colors.text }]}>
+              {horario.hora} —{' '}
+              {horario.diasSemana!
+                .split(',')
+                .map((d) => ETIQUETA_DIA[Number(d)])
+                .join(' ')}
+            </Text>
+          ) : (
+            <Text key={horario.id} style={[typography.body, { color: colors.text }]}>
+              Cada {horario.frecuenciaHoras}h durante {horario.duracionDias}{' '}
+              {horario.duracionDias === 1 ? 'día' : 'días'} — desde{' '}
+              {new Date(horario.fechaHoraInicio!).toLocaleString('es-ES')}
+            </Text>
+          ),
+        )}
       </Card>
 
       {!!medicamento.notas && (
