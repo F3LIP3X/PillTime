@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { Pencil } from 'lucide-react-native';
 
@@ -33,7 +33,12 @@ export default function Historial() {
       const uri = await exportarHistorialAPdf(db);
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+      } else {
+        Alert.alert('No se puede compartir', 'Este dispositivo no admite compartir archivos.');
       }
+    } catch (error) {
+      console.warn('Error exportando/compartiendo el PDF:', error);
+      Alert.alert('No se pudo exportar', 'Ocurrió un problema generando o compartiendo el PDF.');
     } finally {
       setExportando(false);
     }

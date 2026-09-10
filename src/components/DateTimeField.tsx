@@ -41,10 +41,11 @@ export function DateTimeField({ label, value, mode, onChange }: Props) {
           value={value}
           mode={mode}
           display="default"
-          onChange={(_evento, seleccion) => {
+          onValueChange={(_evento, seleccion) => {
             setMostrar(false);
-            if (seleccion) onChange(seleccion);
+            onChange(seleccion);
           }}
+          onDismiss={() => setMostrar(false)}
         />
       )}
     </View>

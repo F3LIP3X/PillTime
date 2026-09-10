@@ -1,4 +1,9 @@
 import { eq } from 'drizzle-orm';
+// SDK 57 sustituyó la API imperativa de expo-file-system (cacheDirectory,
+// copyAsync...) por clases File/Directory nuevas; se usa el import de
+// compatibilidad expo-file-system/legacy para no reescribir esto con una
+// API experimental que aún no está bien documentada.
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 
 import type { Db } from '@/db/client';
@@ -37,5 +42,17 @@ export async function exportarHistorialAPdf(db: Db) {
   `;
 
   const { uri } = await Print.printToFileAsync({ html });
-  return uri;
+
+  /**
+   * expo-print escribe el PDF en un directorio propio que el
+   * FileProvider de expo-sharing no siempre puede leer directamente en
+   * Android ("Not allowed to read file under given URL" — confirmado en
+   * dispositivo real). El arreglo estándar es copiar el archivo a
+   * FileSystem.cacheDirectory con nombre y extensión .pdf explícitos
+   * antes de compartirlo; ese directorio sí está cubierto por el
+   * FileProvider que usa expo-sharing.
+   */
+  const destino = `${FileSystem.cacheDirectory}historial-pilltime-${Date.now()}.pdf`;
+  await FileSystem.copyAsync({ from: uri, to: destino });
+  return destino;
 }
