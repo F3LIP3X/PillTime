@@ -42,15 +42,46 @@ export const medicamentos = sqliteTable('medicamentos', {
     .default(sql`(current_timestamp)`),
 });
 
+export const TIPO_HORARIO = ['semanal', 'intervalo'] as const;
+export type TipoHorario = (typeof TIPO_HORARIO)[number];
+
+/**
+ * Dos modos de pauta, elegidos a propósito como modos separados (no un
+ * único modelo tipo "cada N horas, sin fecha de fin = crónico"):
+ *
+ * - 'semanal': hora fija + días de la semana, INDEFINIDO (medicación
+ *   crónica, ej. "tensión, todos los días a las 9:00"). Sus tomas se
+ *   generan de forma perezosa día a día (ver useAsegurarTomasDeHoy) — no
+ *   tiene sentido precrear tomas de algo que no tiene fecha de fin.
+ * - 'intervalo': cada `frecuenciaHoras` horas a partir de
+ *   `fechaHoraInicio`, durante `duracionDias` días (tratamiento corto,
+ *   ej. "antibiótico cada 8 horas durante 7 días"). Como SÍ tiene un
+ *   final conocido, sus tomas se generan TODAS de una vez al crear el
+ *   horario (ver useCrearTratamientoIntervalo), no de forma perezosa.
+ *
+ * `hora`/`diasSemana` solo se usan (y son NOT NULL a nivel de aplicación)
+ * cuando tipo='semanal'; `frecuenciaHoras`/`fechaHoraInicio`/`duracionDias`
+ * solo cuando tipo='intervalo'. SQLite no tiene un modo limpio de exigir
+ * "estas columnas obligatorias solo si tipo=X" a nivel de esquema sin
+ * CHECK constraints incómodos, así que la validación de qué grupo de
+ * columnas es obligatorio según `tipo` vive en la capa de hooks, no aquí.
+ */
 export const horariosMedicamento = sqliteTable('horarios_medicamento', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   medicamentoId: integer('medicamento_id')
     .notNull()
     .references(() => medicamentos.id, { onDelete: 'cascade' }),
-  /** Hora local en formato "HH:mm". */
-  hora: text('hora').notNull(),
-  /** CSV de días ISO (1=lunes … 7=domingo), ej. "1,2,3,4,5". */
-  diasSemana: text('dias_semana').notNull(),
+  tipo: text('tipo', { enum: TIPO_HORARIO }).notNull().default('semanal'),
+  /** Hora local "HH:mm". Solo para tipo='semanal'. */
+  hora: text('hora'),
+  /** CSV de días ISO (1=lunes … 7=domingo), ej. "1,2,3,4,5". Solo para tipo='semanal'. */
+  diasSemana: text('dias_semana'),
+  /** Cada cuántas horas se repite la toma. Solo para tipo='intervalo'. */
+  frecuenciaHoras: integer('frecuencia_horas'),
+  /** Fecha/hora ISO de la primera toma del tratamiento. Solo para tipo='intervalo'. */
+  fechaHoraInicio: text('fecha_hora_inicio'),
+  /** Duración total del tratamiento en días. Solo para tipo='intervalo'. */
+  duracionDias: integer('duracion_dias'),
   activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
 });
 
