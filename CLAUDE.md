@@ -302,6 +302,76 @@ try/catch más abajo", va a reventar exactamente igual — hay que
 verificarlo en Expo Go en Android, no solo en iOS o en una development
 build, antes de dar el cambio por bueno.
 
+## Sistema de diseño (`src/theme` + `src/components`)
+
+La paleta es la del plan de diseño; los tokens de forma no estaban ahí y
+se añadieron después (`radii.ts`, `shadows.ts`, y los colores de
+superficie en `colors.ts`). Reglas que conviene no romper por descuido:
+
+- **Nunca colores literales en las pantallas.** Todo sale de
+  `useTheme().colors`. El único literal aceptado es `#FFFFFF` para texto
+  sobre el primario, porque no cambia entre temas.
+- **Sombras solo en claro.** `sombraSegunTema()` las anula en oscuro: en
+  un fondo casi negro no se ven y solo ensucian. Ahí la elevación la da
+  `colors.surface`, que es más claro que `colors.background`.
+- **`Card` tiene dos capas a propósito** (una proyecta la sombra, otra
+  recorta al radio). En iOS `overflow: 'hidden'` y `shadow*` en la misma
+  vista se anulan entre sí; si alguien "simplifica" Card a una sola
+  vista, o desaparecen las sombras o se ven las esquinas cuadradas de
+  las filas dentro de una lista agrupada.
+- **Estado nunca solo por color** (requisito de accesibilidad del plan):
+  los badges de estado llevan color + texto, y en Historial además
+  icono.
+
+**Zonas seguras.** Bug real en dispositivo: fijar alturas a mano en la
+barra de pestañas hacía que la barra de gestos de Android pisara las
+etiquetas, y ocultar la cabecera en Inicio metía el título bajo el reloj
+del sistema. Regla: la altura de la barra de pestañas es
+`58 + insets.bottom`, Inicio añade `insets.top` al padding de su lista, y
+cualquier barra inferior de acción usa el componente `PieAccion`, que
+suma el inset inferior **salvo** cuando la pantalla está dentro de las
+pestañas (`dentroDeTabs`), porque ahí ese hueco ya lo ocupa la barra.
+
+## Permisos y canal de notificaciones
+
+Además de la limitación de Expo Go (arriba), para que un recordatorio
+suene de verdad hacen falta dos cosas que no son evidentes:
+
+- **Permiso.** En Android 13+ está denegado por defecto hasta que la app
+  lo pide. `solicitarPermisoNotificaciones()` lo pide una vez al
+  arrancar (vía `useInicializarNotificaciones` en `app/_layout.tsx`) y
+  respeta `canAskAgain`: si el usuario ya dijo que no y el sistema no
+  deja volver a preguntar, hay que ir a los ajustes del SO.
+- **Canal de Android** (`CANAL_RECORDATORIOS`). En Android 8+ el sonido y
+  la prioridad los decide el canal, no la notificación: sin un canal con
+  `AndroidImportance.HIGH`, el aviso sale mudo y sin emerger. Cada
+  trigger pasa `channelId`; si se programa una notificación sin él,
+  Android la manda al canal por defecto y se pierde la configuración.
+  Ojo: Android solo permite cambiar el nombre y la descripción de un
+  canal ya creado — para cambiarle sonido o importancia hay que usar un
+  id nuevo (`recordatorios-v2`), reconfigurar el existente no hace nada.
+
+Lo que hay son notificaciones normales, no una alarma tipo despertador:
+suenan y emergen, pero no toman la pantalla completa ni suenan en modo
+silencio, y Android puede retrasarlas en reposo profundo. Una alarma
+insistente exigiría permisos de alarma exacta y notificación a pantalla
+completa; se descartó a propósito por ahora.
+
+## Compilar el APK (EAS Build)
+
+No hay Android SDK en el entorno de desarrollo, así que las builds van
+por la nube de Expo. `eas.json` define tres perfiles:
+
+- `development`: APK con `expo-dev-client`. Se instala una vez y luego
+  `npm start` recarga los cambios al vuelo — es la forma de iterar con
+  notificaciones funcionando, sin recompilar por cada cambio.
+- `preview`: APK independiente instalable a mano (`buildType: apk`, no
+  `app-bundle`, que no se puede instalar directamente).
+- `production`: `app-bundle` para subir a Google Play.
+
+`android.package` es `com.felit.pilltime`. El `extra.eas.projectId` lo
+añade `eas init` la primera vez (requiere cuenta de Expo).
+
 ## Assets de marca (icono, adaptive icon, splash)
 
 Icono aprobado: concepto "cápsula partida" (cápsula en diagonal, mitad
