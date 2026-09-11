@@ -380,6 +380,18 @@ por la nube de Expo. `eas.json` define tres perfiles:
 `android.package` es `com.felit.pilltime`. El `extra.eas.projectId` lo
 añade `eas init` la primera vez (requiere cuenta de Expo).
 
+**Publicar en Google Play está descartado por decisión del usuario**, no
+pendiente. Se valoró y se dejó al ver el trámite: 25 $ de alta,
+verificación de identidad y, para cuentas personales nuevas, una prueba
+cerrada con 12 probadores durante 14 días seguidos antes de poder pasar
+a producción. La app se distribuye como APK (`--profile preview`), que
+se instala directamente. No propongas publicarla en Play salvo que el
+usuario lo saque él.
+
+Por eso tampoco hay política de privacidad, ficha de tienda ni gráfico
+promocional: se prepararon como opción y se descartaron con la
+publicación.
+
 ## Assets de marca (icono, adaptive icon, splash)
 
 Icono aprobado: concepto "cápsula partida" (cápsula en diagonal, mitad
