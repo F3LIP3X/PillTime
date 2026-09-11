@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { Check, FileDown, History, Pencil, SkipForward } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
+import { PieAccion } from '@/components/PieAccion';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { IconoCircular } from '@/components/IconoCircular';
@@ -154,7 +155,7 @@ export default function Historial() {
         }}
       />
 
-      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <PieAccion dentroDeTabs>
         <Button
           label={exportando ? 'Generando PDF…' : 'Exportar a PDF'}
           variant="secondary"
@@ -162,7 +163,7 @@ export default function Historial() {
           disabled={exportando || historial.length === 0}
           onPress={handleExportar}
         />
-      </View>
+      </PieAccion>
 
       <EditarTomaModal toma={tomaEditando} onClose={() => setTomaEditando(null)} onCambiado={recargar} />
     </View>
@@ -189,5 +190,4 @@ const styles = StyleSheet.create({
   },
   textos: { flex: 1, gap: 2 },
   badge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radii.pill },
-  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });

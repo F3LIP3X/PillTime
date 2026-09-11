@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, PartyPopper, Pencil, Pill, TriangleAlert, X } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
+import { PieAccion } from '@/components/PieAccion';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { IconoCircular } from '@/components/IconoCircular';
@@ -59,6 +61,10 @@ function saludo() {
 export default function Inicio() {
   const { colors } = useTheme();
   const router = useRouter();
+  // Esta pantalla oculta la cabecera para lucir el título grande, así
+  // que el hueco de la barra de estado hay que reservarlo a mano: si no,
+  // el reloj y la batería del sistema caen encima del texto.
+  const insets = useSafeAreaInsets();
   const asegurarTomasDeHoy = useAsegurarTomasDeHoy();
   const { proximas, recargar: recargarProximas } = useProximaTomaPorMedicamento();
   const { medicamentos, recargar: recargarMedicamentos } = useMedicamentos();
@@ -87,7 +93,7 @@ export default function Inicio() {
       <FlatList
         data={proximas}
         keyExtractor={(item) => String(item.medicamentoId)}
-        contentContainerStyle={styles.lista}
+        contentContainerStyle={[styles.lista, { paddingTop: insets.top + spacing.sm }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.cabeceraPantalla}>
@@ -187,14 +193,14 @@ export default function Inicio() {
         }}
       />
 
-      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <PieAccion dentroDeTabs>
         <Button
           label="Añadir medicamento"
           variant="secondary"
           onPress={() => router.push('/medicamento/nuevo')}
           accessibilityLabel="Añadir medicamento"
         />
-      </View>
+      </PieAccion>
 
       <EditarTomaModal
         toma={tomaEditando}
@@ -213,7 +219,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     flexGrow: 1,
   },
-  cabeceraPantalla: { gap: spacing.xs, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+  cabeceraPantalla: { gap: spacing.xs, paddingBottom: spacing.xs },
   avisoStock: { marginTop: spacing.md },
   avisoInterior: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md },
   avisoTextos: { flex: 1, gap: 2 },
@@ -226,8 +232,4 @@ const styles = StyleSheet.create({
   nombreBloque: { gap: 2 },
   acciones: { flexDirection: 'row', gap: spacing.sm },
   accionFlexible: { flex: 1 },
-  pieAccion: {
-    padding: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
 });

@@ -71,6 +71,69 @@ function cargarNotificaciones(): ModuloNotificaciones | null {
   return notificacionesCache;
 }
 
+/**
+ * Canal de Android donde caen todos los recordatorios de toma.
+ *
+ * En Android 8+ el sonido y la prioridad los decide el CANAL, no la
+ * notificación: sin un canal con importancia alta, el aviso aparece
+ * mudo y sin emerger en pantalla, que para un recordatorio de
+ * medicación equivale a no avisar. El id se pasa luego en cada
+ * `trigger.channelId` — si se programa una notificación sin él, Android
+ * la manda al canal por defecto y se pierde esta configuración.
+ *
+ * Ojo: Android solo deja cambiar el nombre y la descripción de un canal
+ * ya creado. Si en el futuro hay que cambiarle el sonido o la
+ * importancia, hay que usar un id nuevo (p. ej. 'recordatorios-v2'),
+ * porque reconfigurar el existente no tiene efecto.
+ */
+export const CANAL_RECORDATORIOS = 'recordatorios-tomas';
+
+export async function configurarCanalAndroid() {
+  if (Platform.OS !== 'android') return;
+  const Notifications = cargarNotificaciones();
+  if (!Notifications) return;
+
+  try {
+    await Notifications.setNotificationChannelAsync(CANAL_RECORDATORIOS, {
+      name: 'Recordatorios de tomas',
+      description: 'Avisos a la hora de cada medicamento',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+      vibrationPattern: [0, 250, 250, 250],
+      enableVibrate: true,
+    });
+  } catch (error) {
+    console.warn('No se pudo crear el canal de notificaciones:', error);
+  }
+}
+
+/**
+ * Pide el permiso de notificaciones si aún no está concedido. En Android
+ * 13+ el permiso está DENEGADO por defecto hasta que la app lo pide, así
+ * que sin esta llamada no suena nada por mucho que se programe.
+ *
+ * Devuelve si quedó concedido, para que la interfaz pueda avisar al
+ * usuario en vez de programar recordatorios que nunca va a ver.
+ */
+export async function solicitarPermisoNotificaciones(): Promise<boolean> {
+  const Notifications = cargarNotificaciones();
+  if (!Notifications) return false;
+
+  try {
+    const actual = await Notifications.getPermissionsAsync();
+    if (actual.granted) return true;
+    // No se vuelve a pedir si el usuario ya dijo que no y el sistema no
+    // permite volver a preguntar: ahí hay que ir a los ajustes del SO.
+    if (!actual.canAskAgain) return false;
+
+    const solicitado = await Notifications.requestPermissionsAsync();
+    return solicitado.granted;
+  } catch (error) {
+    console.warn('No se pudo solicitar el permiso de notificaciones:', error);
+    return false;
+  }
+}
+
 type HorarioConMedicamento = {
   hora: string;
   diasSemana: string;
@@ -198,6 +261,7 @@ export async function reprogramarNotificaciones(db: Db) {
             weekday: isoADiaExpo(diaIso),
             hour,
             minute,
+            channelId: CANAL_RECORDATORIOS,
           },
         });
       }
@@ -233,6 +297,7 @@ export async function programarNotificacionesTratamiento(tomasProgramadas: TomaP
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: new Date(toma.fechaHoraProgramada),
+          channelId: CANAL_RECORDATORIOS,
         },
       });
     }

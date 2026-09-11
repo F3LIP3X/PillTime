@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarClock, MapPin, Plus } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
+import { PieAccion } from '@/components/PieAccion';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { IconoCircular } from '@/components/IconoCircular';
@@ -64,13 +65,13 @@ export default function ListaCitas() {
         }}
       />
 
-      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <PieAccion>
         <Button
           label="Nueva cita"
           icono={<Plus color="#FFFFFF" size={18} />}
           onPress={() => router.push('/cita/nueva')}
         />
-      </View>
+      </PieAccion>
     </View>
   );
 }
@@ -82,5 +83,4 @@ const styles = StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   textos: { flex: 1, gap: 3 },
   lugarFila: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });

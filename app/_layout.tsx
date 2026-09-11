@@ -14,6 +14,7 @@ import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { radii } from '@/theme/radii';
 import { HorizontalLoader } from '@/components/HorizontalLoader';
+import { useInicializarNotificaciones } from '@/features/notificaciones/useInicializarNotificaciones';
 
 // Conexión aparte solo para aplicar migraciones antes de montar el árbol;
 // SQLiteProvider abre su propia conexión al mismo archivo para los hooks
@@ -27,6 +28,11 @@ export default function RootLayout() {
   const { colors, esOscuro } = useTheme();
   const opacidad = useRef(new Animated.Value(0)).current;
   const traslado = useRef(new Animated.Value(12)).current;
+
+  // Canal de Android + permiso de notificaciones, una sola vez al
+  // arrancar. Sin esto no suena nada en Android 13+ aunque los
+  // recordatorios estén bien programados.
+  useInicializarNotificaciones();
 
   useEffect(() => {
     if (error) console.error('Error aplicando migraciones de SQLite:', error);

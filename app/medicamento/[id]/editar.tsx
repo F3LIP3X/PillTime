@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
+import { PieAccion } from '@/components/PieAccion';
 import { Card } from '@/components/Card';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
@@ -114,13 +115,13 @@ export default function EditarMedicamento() {
         </View>
       </ScrollView>
 
-      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <PieAccion>
         <Button
           label={guardando ? 'Guardando…' : 'Guardar cambios'}
           onPress={handleGuardar}
           disabled={!puedeGuardar || guardando}
         />
-      </View>
+      </PieAccion>
     </View>
   );
 }
@@ -134,5 +135,4 @@ const styles = StyleSheet.create({
   campoFlexible: { flex: 1 },
   bloque: { gap: spacing.xs, marginTop: spacing.xs },
   notas: { minHeight: 88, textAlignVertical: 'top', paddingTop: spacing.sm },
-  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { ScanBarcode } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
+import { PieAccion } from '@/components/PieAccion';
 import { Card } from '@/components/Card';
 import { TextField } from '@/components/TextField';
 import { DateTimeField } from '@/components/DateTimeField';
@@ -285,13 +286,13 @@ export default function NuevoMedicamento() {
         </View>
       </ScrollView>
 
-      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <PieAccion>
         <Button
           label={guardando ? 'Guardando…' : 'Guardar medicamento'}
           onPress={handleGuardar}
           disabled={!puedeGuardar || guardando}
         />
-      </View>
+      </PieAccion>
 
       <Modal visible={escaneando} animationType="slide">
         <View style={styles.escaner}>
@@ -331,7 +332,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notas: { minHeight: 88, textAlignVertical: 'top', paddingTop: spacing.sm },
-  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
   escaner: { flex: 1 },
   pieEscaner: { padding: spacing.md },
 });

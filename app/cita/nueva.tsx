@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
+import { PieAccion } from '@/components/PieAccion';
 import { Card } from '@/components/Card';
 import { DateTimeField } from '@/components/DateTimeField';
 import { TextField } from '@/components/TextField';
@@ -53,13 +54,13 @@ export default function NuevaCita() {
         </Card>
       </ScrollView>
 
-      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <PieAccion>
         <Button
           label={guardando ? 'Guardando…' : 'Guardar cita'}
           onPress={handleGuardar}
           disabled={!titulo.trim() || guardando}
         />
-      </View>
+      </PieAccion>
     </View>
   );
 }
@@ -69,5 +70,4 @@ const styles = StyleSheet.create({
   container: { padding: spacing.md, gap: spacing.md },
   fila: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs },
   campoFlexible: { flex: 1 },
-  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });
