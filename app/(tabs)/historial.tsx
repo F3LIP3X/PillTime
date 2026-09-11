@@ -75,7 +75,10 @@ export default function Historial() {
       }
     } catch (error) {
       console.warn('Error exportando/compartiendo el PDF:', error);
-      Alert.alert('No se pudo exportar', 'Ocurrió un problema generando o compartiendo el PDF.');
+      // Se muestra el mensaje real: sin él, diagnosticar un fallo de
+      // exportación en el móvil del usuario es adivinar a ciegas.
+      const detalle = error instanceof Error ? error.message : String(error);
+      Alert.alert('No se pudo exportar', `Ocurrió un problema generando o compartiendo el PDF.\n\n${detalle}`);
     } finally {
       setExportando(false);
     }
