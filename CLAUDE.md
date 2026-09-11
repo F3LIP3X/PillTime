@@ -20,7 +20,8 @@ descarta explícitamente porque exigiría un servidor de sincronización).
 ## Comandos
 
 ```bash
-npm start            # Metro / Expo dev server
+npm start                  # Metro en modo Expo Go (túnel)
+npm run start:dev-client    # Metro para una development build propia
 npm run android       # abrir en Android
 npm run ios           # abrir en iOS
 npm run web           # abrir en web
@@ -30,6 +31,13 @@ npm run db:studio     # Drizzle Studio sobre el esquema local
 ```
 
 No hay suite de tests configurada todavía.
+
+**`npm start` lleva `--go` a propósito.** Con `expo-dev-client` instalado
+(hace falta para el perfil `development` de EAS), `expo start` a secas
+deja de apuntar a Expo Go y genera un enlace para una build propia — si
+esa build no está instalada, el QR no abre nada y parece que la app se
+ha roto. Pasó de verdad. El flag `--tunnel` está porque la red NAT de
+WSL2 no es alcanzable desde el móvil (ver más abajo).
 
 Instala paquetes JS puros (no nativos de Expo) con `--legacy-peer-deps`
 — el árbol de dependencias de Expo SDK 57 trae un conflicto de peer
