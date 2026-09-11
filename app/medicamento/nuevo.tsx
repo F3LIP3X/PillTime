@@ -4,8 +4,10 @@ import { useRouter } from 'expo-router';
 import { ScanBarcode } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
 import { TextField } from '@/components/TextField';
 import { DateTimeField } from '@/components/DateTimeField';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { BarcodeScannerView } from '@/features/codigo-barras/components/BarcodeScannerView';
 import { useBarcodeLookup } from '@/features/codigo-barras/hooks/useBarcodeLookup';
 import { useCrearMedicamento } from '@/features/medicamentos/hooks/useCrearMedicamento';
@@ -13,12 +15,13 @@ import { useCrearHorario } from '@/features/medicamentos/hooks/useCrearHorario';
 import { useCrearTratamientoIntervalo } from '@/features/medicamentos/hooks/useCrearTratamientoIntervalo';
 import { useTheme } from '@/theme/useTheme';
 import { spacing, MIN_TOUCH_TARGET } from '@/theme/spacing';
+import { radii } from '@/theme/radii';
 import { typography } from '@/theme/typography';
 import { MOMENTO_COMIDA, type MomentoComida } from '@/db/schema';
 
 const ETIQUETA_MOMENTO: Record<MomentoComida, string> = {
-  antes: 'Antes de comer',
-  despues: 'Después de comer',
+  antes: 'Antes',
+  despues: 'Después',
   ninguno: 'Indiferente',
 };
 
@@ -33,7 +36,7 @@ const DIAS_SEMANA = [
 ];
 
 export default function NuevoMedicamento() {
-  const { colors, esOscuro } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const crearMedicamento = useCrearMedicamento();
   const crearHorario = useCrearHorario();
@@ -77,10 +80,18 @@ export default function NuevoMedicamento() {
     }
   };
 
+  const totalTomasPrevistas =
+    modo === 'tratamiento' && Number(frecuenciaHoras) > 0
+      ? Math.floor((Number(duracionDias) * 24) / Number(frecuenciaHoras))
+      : 0;
+
+  const puedeGuardar =
+    nombre.trim().length > 0 &&
+    dosis.trim().length > 0 &&
+    (modo === 'cronico' ? diasSeleccionados.length > 0 : Number(frecuenciaHoras) > 0 && Number(duracionDias) > 0);
+
   const handleGuardar = async () => {
-    if (!nombre.trim() || !dosis.trim()) return;
-    if (modo === 'cronico' && diasSeleccionados.length === 0) return;
-    if (modo === 'tratamiento' && (!Number(frecuenciaHoras) || !Number(duracionDias))) return;
+    if (!puedeGuardar) return;
 
     setGuardando(true);
     try {
@@ -114,217 +125,213 @@ export default function NuevoMedicamento() {
   };
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
-      <TextField label="Nombre" value={nombre} onChangeText={setNombre} />
-      <TextField label="Dosis (ej. 500 mg)" value={dosis} onChangeText={setDosis} />
+    <View style={[styles.pantalla, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.grupo}>
+          <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>Medicamento</Text>
+          <Card>
+            <TextField label="Nombre" value={nombre} onChangeText={setNombre} placeholder="Ibuprofeno" />
+            <TextField label="Dosis" value={dosis} onChangeText={setDosis} placeholder="600 mg" />
 
-      <View style={styles.fila}>
-        <TextField
-          label="Unidades por toma"
-          keyboardType="numeric"
-          value={unidadesPorToma}
-          onChangeText={setUnidadesPorToma}
-          style={styles.mitad}
-        />
-        <TextField
-          label="Stock inicial"
-          keyboardType="numeric"
-          value={stockInicial}
-          onChangeText={setStockInicial}
-          style={styles.mitad}
-        />
-      </View>
-
-      <View>
-        <Text style={[typography.caption, { color: colors.textSecondary }]}>Con la comida</Text>
-        <View style={styles.opciones}>
-          {MOMENTO_COMIDA.map((momento) => (
-            <Pressable
-              key={momento}
-              onPress={() => setMomentoComida(momento)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: momentoComida === momento }}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: momentoComida === momento ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-                  borderColor: colors.textSecondary + '33',
-                },
-              ]}
-            >
-              <Text style={[typography.bodySmall, { color: momentoComida === momento ? '#FFFFFF' : colors.text }]}>
-                {ETIQUETA_MOMENTO[momento]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <View>
-        <Text style={[typography.caption, { color: colors.textSecondary }]}>Pauta</Text>
-        <View style={styles.opciones}>
-          <Pressable
-            onPress={() => setModo('cronico')}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: modo === 'cronico' }}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: modo === 'cronico' ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-                borderColor: colors.textSecondary + '33',
-              },
-            ]}
-          >
-            <Text style={[typography.bodySmall, { color: modo === 'cronico' ? '#FFFFFF' : colors.text }]}>
-              Crónico (días fijos)
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setModo('tratamiento')}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: modo === 'tratamiento' }}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: modo === 'tratamiento' ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-                borderColor: colors.textSecondary + '33',
-              },
-            ]}
-          >
-            <Text style={[typography.bodySmall, { color: modo === 'tratamiento' ? '#FFFFFF' : colors.text }]}>
-              Tratamiento (cada X horas)
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {modo === 'cronico' ? (
-        <>
-          <View>
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>Hora de la toma</Text>
-            <DateTimeField label="Hora" mode="time" value={hora} onChange={setHora} />
-          </View>
-
-          <View>
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>Días</Text>
-            <View style={styles.opciones}>
-              {DIAS_SEMANA.map((dia) => (
-                <Pressable
-                  key={dia.iso}
-                  onPress={() => alternarDia(dia.iso)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: diasSeleccionados.includes(dia.iso) }}
-                  accessibilityLabel={dia.etiqueta}
-                  style={[
-                    styles.diaChip,
-                    {
-                      backgroundColor: diasSeleccionados.includes(dia.iso)
-                        ? colors.secondary
-                        : esOscuro
-                          ? '#1B2626'
-                          : '#FFFFFF',
-                      borderColor: colors.textSecondary + '33',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.bodySmall,
-                      { color: diasSeleccionados.includes(dia.iso) ? '#FFFFFF' : colors.text },
-                    ]}
-                  >
-                    {dia.etiqueta}
-                  </Text>
-                </Pressable>
-              ))}
+            <View style={styles.fila}>
+              <View style={styles.campoFlexible}>
+                <TextField
+                  label="Unidades por toma"
+                  keyboardType="numeric"
+                  value={unidadesPorToma}
+                  onChangeText={setUnidadesPorToma}
+                />
+              </View>
+              <View style={styles.campoFlexible}>
+                <TextField
+                  label="Unidades en la caja"
+                  keyboardType="numeric"
+                  value={stockInicial}
+                  onChangeText={setStockInicial}
+                  placeholder="0"
+                />
+              </View>
             </View>
-          </View>
-        </>
-      ) : (
-        <>
-          <View style={styles.fila}>
-            <TextField
-              label="Cada cuántas horas"
-              keyboardType="numeric"
-              value={frecuenciaHoras}
-              onChangeText={setFrecuenciaHoras}
-              style={styles.mitad}
-            />
-            <TextField
-              label="Duración (días)"
-              keyboardType="numeric"
-              value={duracionDias}
-              onChangeText={setDuracionDias}
-              style={styles.mitad}
-            />
-          </View>
-          <View style={styles.fila}>
-            <DateTimeField label="Fecha primera toma" mode="date" value={fechaInicio} onChange={setFechaInicio} />
-            <DateTimeField label="Hora primera toma" mode="time" value={fechaInicio} onChange={setFechaInicio} />
-          </View>
-        </>
-      )}
 
-      <View style={styles.fila}>
-        <TextField
-          label="Código de barras (opcional)"
-          value={codigoBarras}
-          onChangeText={setCodigoBarras}
-          style={styles.codigoInput}
+            <View style={styles.bloque}>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>Con la comida</Text>
+              <SegmentedControl
+                opciones={MOMENTO_COMIDA.map((m) => ({ valor: m, etiqueta: ETIQUETA_MOMENTO[m] }))}
+                valor={momentoComida}
+                onChange={setMomentoComida}
+              />
+            </View>
+          </Card>
+        </View>
+
+        <View style={styles.grupo}>
+          <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>Pauta</Text>
+          <Card>
+            <SegmentedControl
+              opciones={[
+                { valor: 'cronico', etiqueta: 'Días fijos' },
+                { valor: 'tratamiento', etiqueta: 'Cada X horas' },
+              ]}
+              valor={modo}
+              onChange={setModo}
+            />
+
+            {modo === 'cronico' ? (
+              <>
+                <DateTimeField label="Hora de la toma" mode="time" value={hora} onChange={setHora} />
+                <View style={styles.bloque}>
+                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Días</Text>
+                  <View style={styles.diasFila}>
+                    {DIAS_SEMANA.map((dia) => {
+                      const activo = diasSeleccionados.includes(dia.iso);
+                      return (
+                        <Pressable
+                          key={dia.iso}
+                          onPress={() => alternarDia(dia.iso)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: activo }}
+                          accessibilityLabel={dia.etiqueta}
+                          style={[
+                            styles.diaChip,
+                            { backgroundColor: activo ? colors.primary : colors.fill },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.bodySmall,
+                              { color: activo ? '#FFFFFF' : colors.textSecondary, fontWeight: '600' },
+                            ]}
+                          >
+                            {dia.etiqueta}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.fila}>
+                  <View style={styles.campoFlexible}>
+                    <TextField
+                      label="Cada"
+                      ayuda="horas"
+                      keyboardType="numeric"
+                      value={frecuenciaHoras}
+                      onChangeText={setFrecuenciaHoras}
+                    />
+                  </View>
+                  <View style={styles.campoFlexible}>
+                    <TextField
+                      label="Durante"
+                      ayuda="días"
+                      keyboardType="numeric"
+                      value={duracionDias}
+                      onChangeText={setDuracionDias}
+                    />
+                  </View>
+                </View>
+                <View style={styles.fila}>
+                  <View style={styles.campoFlexible}>
+                    <DateTimeField label="Primera toma" mode="date" value={fechaInicio} onChange={setFechaInicio} />
+                  </View>
+                  <View style={styles.campoFlexible}>
+                    <DateTimeField label="Hora" mode="time" value={fechaInicio} onChange={setFechaInicio} />
+                  </View>
+                </View>
+                {totalTomasPrevistas > 0 && (
+                  <View style={[styles.resumen, { backgroundColor: colors.primarySoft }]}>
+                    <Text style={[typography.bodySmall, { color: colors.primary }]}>
+                      Se crearán {totalTomasPrevistas} tomas, la última el{' '}
+                      {new Date(
+                        fechaInicio.getTime() +
+                          (totalTomasPrevistas - 1) * Number(frecuenciaHoras) * 60 * 60 * 1000,
+                      ).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                      .
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+          </Card>
+        </View>
+
+        <View style={styles.grupo}>
+          <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>Opcional</Text>
+          <Card>
+            <View style={styles.filaCodigo}>
+              <View style={styles.campoFlexible}>
+                <TextField label="Código de barras" value={codigoBarras} onChangeText={setCodigoBarras} />
+              </View>
+              <Pressable
+                onPress={() => setEscaneando(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Escanear código de barras"
+                style={[styles.botonEscanear, { backgroundColor: colors.primary }]}
+              >
+                <ScanBarcode color="#FFFFFF" size={22} />
+              </Pressable>
+            </View>
+            <TextField
+              label="Notas y alertas"
+              value={notas}
+              onChangeText={setNotas}
+              multiline
+              placeholder="Ej. puede causar somnolencia"
+              style={styles.notas}
+            />
+          </Card>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+        <Button
+          label={guardando ? 'Guardando…' : 'Guardar medicamento'}
+          onPress={handleGuardar}
+          disabled={!puedeGuardar || guardando}
         />
-        <Pressable
-          onPress={() => setEscaneando(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Escanear código de barras"
-          style={[styles.botonEscanear, { backgroundColor: colors.primary }]}
-        >
-          <ScanBarcode color="#FFFFFF" size={22} />
-        </Pressable>
       </View>
-
-      <TextField
-        label="Notas / alertas (opcional)"
-        value={notas}
-        onChangeText={setNotas}
-        multiline
-        style={styles.notas}
-      />
-
-      <Button label={guardando ? 'Guardando…' : 'Guardar medicamento'} onPress={handleGuardar} />
 
       <Modal visible={escaneando} animationType="slide">
-        <BarcodeScannerView onScanned={handleEscaneado} />
-        <Button label="Cancelar" variant="secondary" onPress={() => setEscaneando(false)} />
+        <View style={styles.escaner}>
+          <BarcodeScannerView onScanned={handleEscaneado} />
+          <View style={[styles.pieEscaner, { backgroundColor: colors.background }]}>
+            <Button label="Cancelar" variant="secondary" onPress={() => setEscaneando(false)} />
+          </View>
+        </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  fila: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-end' },
-  mitad: { flex: 1 },
-  opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
+  pantalla: { flex: 1 },
+  container: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
+  grupo: { gap: spacing.sm },
+  tituloGrupo: { marginLeft: spacing.xs },
+  fila: { flexDirection: 'row', gap: spacing.md },
+  campoFlexible: { flex: 1 },
+  bloque: { gap: spacing.xs, marginTop: spacing.xs },
+  diasFila: { flexDirection: 'row', gap: spacing.xs, justifyContent: 'space-between' },
   diaChip: {
-    width: MIN_TOUCH_TARGET,
+    flex: 1,
     height: MIN_TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: MIN_TOUCH_TARGET / 2,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.sm,
   },
-  codigoInput: { flex: 1 },
+  resumen: { padding: spacing.sm + 2, borderRadius: radii.sm, marginTop: spacing.xs },
+  filaCodigo: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end' },
   botonEscanear: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
-    borderRadius: 10,
+    width: 50,
+    height: 50,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notas: { minHeight: 80 },
+  notas: { minHeight: 88, textAlignVertical: 'top', paddingTop: spacing.sm },
+  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
+  escaner: { flex: 1 },
+  pieEscaner: { padding: spacing.md },
 });

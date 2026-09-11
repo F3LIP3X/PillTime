@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { DateTimeField } from '@/components/DateTimeField';
+import { HojaModal } from '@/components/HojaModal';
 import { TextField } from '@/components/TextField';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
 
 type MedidaEditable = {
   id: number;
@@ -70,30 +70,47 @@ export function EditarMedidaModal({ medida, esTension, onClose, onGuardar, onEli
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.fondo} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()}>
-          <Card style={styles.tarjeta}>
-            <Text style={[typography.subtitle, { color: colors.text }]}>Editar registro</Text>
+    <HojaModal visible titulo="Editar registro" onClose={onClose}>
+      <View style={styles.fila}>
+        <View style={styles.campoFlexible}>
+          <TextField
+            label={esTension ? 'Sistólica' : 'Valor'}
+            keyboardType="numeric"
+            value={valor1}
+            onChangeText={setValor1}
+          />
+        </View>
+        {esTension && (
+          <View style={styles.campoFlexible}>
+            <TextField label="Diastólica" keyboardType="numeric" value={valor2} onChangeText={setValor2} />
+          </View>
+        )}
+      </View>
 
-            <TextField label={esTension ? 'Sistólica' : 'Valor'} keyboardType="numeric" value={valor1} onChangeText={setValor1} />
-            {esTension && (
-              <TextField label="Diastólica" keyboardType="numeric" value={valor2} onChangeText={setValor2} />
-            )}
+      <View style={styles.fila}>
+        <View style={styles.campoFlexible}>
+          <DateTimeField label="Fecha" mode="date" value={fecha} onChange={setFecha} />
+        </View>
+        <View style={styles.campoFlexible}>
+          <DateTimeField label="Hora" mode="time" value={fecha} onChange={setFecha} />
+        </View>
+      </View>
 
-            <DateTimeField label="Fecha" mode="date" value={fecha} onChange={setFecha} />
-            <DateTimeField label="Hora" mode="time" value={fecha} onChange={setFecha} />
-
-            <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} />
-            <Button label="Eliminar registro" variant="secondary" onPress={handleEliminar} />
-          </Card>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      <View style={styles.acciones}>
+        <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} disabled={guardando} />
+        <Button
+          label="Eliminar registro"
+          variant="danger"
+          icono={<Trash2 color={colors.error} size={18} />}
+          onPress={handleEliminar}
+        />
+      </View>
+    </HojaModal>
   );
 }
 
 const styles = StyleSheet.create({
-  fondo: { flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: spacing.lg },
-  tarjeta: { gap: spacing.sm },
+  fila: { flexDirection: 'row', gap: spacing.md },
+  campoFlexible: { flex: 1 },
+  acciones: { gap: spacing.sm, marginTop: spacing.xs },
 });

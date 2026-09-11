@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Pencil } from 'lucide-react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Activity, Pencil, Plus } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { Pressable3D } from '@/components/Pressable3D';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
@@ -20,8 +23,17 @@ const ETIQUETA_TIPO: Record<TipoMedidaSalud, string> = {
   animo: 'Ánimo',
 };
 
+/** La unidad se muestra junto a la cifra: un número suelto no dice nada. */
+const UNIDAD_TIPO: Record<TipoMedidaSalud, string> = {
+  peso: 'kg',
+  tension: 'mmHg',
+  glucosa: 'mg/dl',
+  sintoma: '',
+  animo: '/10',
+};
+
 export default function Medidas() {
-  const { colors, esOscuro } = useTheme();
+  const { colors } = useTheme();
   const [tipo, setTipo] = useState<TipoMedidaSalud>('peso');
   const [valor1, setValor1] = useState('');
   const [valor2, setValor2] = useState('');
@@ -29,6 +41,7 @@ export default function Medidas() {
   const [medidaEditando, setMedidaEditando] = useState<(typeof medidas)[number] | null>(null);
 
   const esTension = tipo === 'tension';
+  const unidad = UNIDAD_TIPO[tipo];
 
   const handleRegistrar = async () => {
     const numero1 = Number(valor1.replace(',', '.'));
@@ -44,67 +57,98 @@ export default function Medidas() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.tabs}>
-        {TIPO_MEDIDA_SALUD.map((t) => (
-          <Pressable
-            key={t}
-            onPress={() => setTipo(t)}
-            accessibilityRole="button"
-            accessibilityLabel={ETIQUETA_TIPO[t]}
-            style={[
-              styles.tab,
-              {
-                backgroundColor: tipo === t ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-                borderColor: colors.textSecondary + '33',
-              },
-            ]}
-          >
-            <Text style={[typography.bodySmall, { color: tipo === t ? '#FFFFFF' : colors.text }]}>
-              {ETIQUETA_TIPO[t]}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Card style={styles.form}>
-        <TextField
-          label={esTension ? 'Sistólica' : ETIQUETA_TIPO[tipo]}
-          keyboardType="numeric"
-          value={valor1}
-          onChangeText={setValor1}
+      <View style={styles.cabecera}>
+        <SegmentedControl
+          opciones={TIPO_MEDIDA_SALUD.map((t) => ({ valor: t, etiqueta: ETIQUETA_TIPO[t] }))}
+          valor={tipo}
+          onChange={(t) => {
+            setTipo(t);
+            setValor1('');
+            setValor2('');
+          }}
+          desplazable
         />
-        {esTension && (
-          <TextField label="Diastólica" keyboardType="numeric" value={valor2} onChangeText={setValor2} />
-        )}
-        <Button label="Registrar" onPress={handleRegistrar} />
-      </Card>
+
+        <Card>
+          <Text style={[typography.overline, { color: colors.textTertiary }]}>Nuevo registro</Text>
+          <View style={styles.filaCampos}>
+            <View style={styles.campoFlexible}>
+              <TextField
+                label={esTension ? 'Sistólica' : ETIQUETA_TIPO[tipo]}
+                ayuda={unidad || undefined}
+                keyboardType="numeric"
+                value={valor1}
+                onChangeText={setValor1}
+                placeholder="0"
+              />
+            </View>
+            {esTension && (
+              <View style={styles.campoFlexible}>
+                <TextField
+                  label="Diastólica"
+                  ayuda={unidad}
+                  keyboardType="numeric"
+                  value={valor2}
+                  onChangeText={setValor2}
+                  placeholder="0"
+                />
+              </View>
+            )}
+          </View>
+          <View style={styles.botonRegistrar}>
+            <Button
+              label="Registrar"
+              icono={<Plus color="#FFFFFF" size={18} />}
+              disabled={!valor1.trim()}
+              onPress={handleRegistrar}
+            />
+          </View>
+        </Card>
+      </View>
 
       <FlatList
         data={medidas}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.lista}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          medidas.length > 0 ? (
+            <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>
+              Historial de {ETIQUETA_TIPO[tipo].toLowerCase()}
+            </Text>
+          ) : null
+        }
         ListEmptyComponent={
-          <Text style={[typography.body, { color: colors.textSecondary }]}>Sin registros todavía.</Text>
+          <EmptyState
+            icono={<Activity color={colors.primary} size={30} />}
+            titulo={`Sin registros de ${ETIQUETA_TIPO[tipo].toLowerCase()}`}
+            descripcion="Anota un valor arriba y se irá guardando aquí con su fecha."
+          />
         }
         renderItem={({ item }) => (
-          <Card>
-            <View style={styles.cabecera}>
-              <Text style={[typography.body, { color: colors.text }]}>
-                {item.valor1}
-                {item.valor2 ? ` / ${item.valor2}` : ''}
-              </Text>
-              <Pressable
-                onPress={() => setMedidaEditando(item)}
-                accessibilityRole="button"
-                accessibilityLabel="Editar registro"
-                hitSlop={8}
-              >
-                <Pencil color={colors.textSecondary} size={16} />
-              </Pressable>
-            </View>
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>
-              {new Date(item.fechaHora).toLocaleString('es-ES')}
-            </Text>
+          <Card sinPadding style={styles.tarjetaMedida}>
+            <Pressable3D onPress={() => setMedidaEditando(item)} escala={0.985}>
+              <View style={styles.filaMedida}>
+                <View style={styles.valorBloque}>
+                  <Text style={[typography.title, { color: colors.text }]}>
+                    {item.valor1}
+                    {item.valor2 ? ` / ${item.valor2}` : ''}
+                  </Text>
+                  {!!unidad && (
+                    <Text style={[typography.caption, { color: colors.textTertiary }]}>{unidad}</Text>
+                  )}
+                </View>
+                <Text style={[typography.caption, styles.fechaMedida, { color: colors.textSecondary }]}>
+                  {new Date(item.fechaHora).toLocaleString('es-ES', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+                <Pencil color={colors.textTertiary} size={16} />
+              </View>
+            </Pressable3D>
           </Card>
         )}
       />
@@ -121,10 +165,21 @@ export default function Medidas() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, gap: spacing.md },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
-  form: { gap: spacing.sm },
-  lista: { gap: spacing.sm, flexGrow: 1 },
-  cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  container: { flex: 1 },
+  cabecera: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.md },
+  filaCampos: { flexDirection: 'row', gap: spacing.md },
+  campoFlexible: { flex: 1 },
+  botonRegistrar: { marginTop: spacing.xs },
+  lista: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, flexGrow: 1 },
+  tituloGrupo: { marginTop: spacing.lg, marginBottom: spacing.sm, marginLeft: spacing.xs },
+  tarjetaMedida: { marginBottom: spacing.sm },
+  filaMedida: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  valorBloque: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
+  fechaMedida: { flex: 1, textAlign: 'right' },
 });

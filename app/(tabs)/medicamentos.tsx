@@ -1,20 +1,27 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { Archive, Pill, Plus } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { IconoCircular } from '@/components/IconoCircular';
+import { ListRow } from '@/components/ListRow';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
+import { radii } from '@/theme/radii';
 import { typography } from '@/theme/typography';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
 
+const UMBRAL_STOCK_BAJO = 5;
+
 export default function Medicamentos() {
-  const { colors, esOscuro } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
-  const [verArchivados, setVerArchivados] = useState(false);
-  const { medicamentos, recargar } = useMedicamentos({ soloActivos: !verArchivados });
+  const [vista, setVista] = useState<'activos' | 'archivados'>('activos');
+  const { medicamentos, recargar } = useMedicamentos({ soloActivos: vista === 'activos' });
 
   useFocusEffect(
     useCallback(() => {
@@ -22,79 +29,113 @@ export default function Medicamentos() {
     }, [recargar]),
   );
 
-  const lista = verArchivados ? medicamentos.filter((m) => !m.activo) : medicamentos;
+  const lista = vista === 'archivados' ? medicamentos.filter((m) => !m.activo) : medicamentos;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.tabs}>
-        <Pressable
-          onPress={() => setVerArchivados(false)}
-          accessibilityRole="button"
-          accessibilityLabel="Activos"
-          style={[
-            styles.tab,
-            {
-              backgroundColor: !verArchivados ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-              borderColor: colors.textSecondary + '33',
-            },
+      <ScrollView contentContainerStyle={styles.contenido} showsVerticalScrollIndicator={false}>
+        <SegmentedControl
+          opciones={[
+            { valor: 'activos', etiqueta: 'Activos' },
+            { valor: 'archivados', etiqueta: 'Archivados' },
           ]}
-        >
-          <Text style={[typography.bodySmall, { color: !verArchivados ? '#FFFFFF' : colors.text }]}>Activos</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setVerArchivados(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Archivados"
-          style={[
-            styles.tab,
-            {
-              backgroundColor: verArchivados ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-              borderColor: colors.textSecondary + '33',
-            },
-          ]}
-        >
-          <Text style={[typography.bodySmall, { color: verArchivados ? '#FFFFFF' : colors.text }]}>Archivados</Text>
-        </Pressable>
-      </View>
+          valor={vista}
+          onChange={setVista}
+        />
 
-      <FlatList
-        data={lista}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.lista}
-        ListEmptyComponent={
-          <Text style={[typography.body, { color: colors.textSecondary }]}>
-            {verArchivados ? 'No hay medicamentos archivados.' : 'No has añadido ningún medicamento todavía.'}
-          </Text>
-        }
-        renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(`/medicamento/${item.id}/detalle`)}>
-            <Card style={styles.fila}>
-              <View style={styles.info}>
-                <Text style={[typography.body, { color: colors.text }]}>{item.nombre}</Text>
-                <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                  {item.dosis} — {item.stockRestante} unidades
-                </Text>
-              </View>
-              <ChevronRight color={colors.textSecondary} size={20} />
+        {lista.length === 0 ? (
+          <EmptyState
+            icono={
+              vista === 'archivados' ? (
+                <Archive color={colors.primary} size={30} />
+              ) : (
+                <Pill color={colors.primary} size={30} />
+              )
+            }
+            titulo={vista === 'archivados' ? 'Nada archivado' : 'Sin medicamentos'}
+            descripcion={
+              vista === 'archivados'
+                ? 'Los medicamentos que archives aparecerán aquí, con su historial intacto.'
+                : 'Añade el primero para empezar a recibir recordatorios de tus tomas.'
+            }
+          />
+        ) : (
+          <>
+            <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>
+              {lista.length} {lista.length === 1 ? 'medicamento' : 'medicamentos'}
+            </Text>
+            <Card sinPadding>
+              {lista.map((medicamento, index) => {
+                const stockBajo = medicamento.stockRestante <= UMBRAL_STOCK_BAJO;
+                return (
+                  <ListRow
+                    key={medicamento.id}
+                    titulo={medicamento.nombre}
+                    subtitulo={medicamento.dosis}
+                    izquierda={
+                      <IconoCircular>
+                        <Pill color={colors.primary} size={20} />
+                      </IconoCircular>
+                    }
+                    derecha={
+                      <View
+                        style={[
+                          styles.badgeStock,
+                          { backgroundColor: stockBajo ? colors.errorSoft : colors.fill },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            typography.caption,
+                            { color: stockBajo ? colors.error : colors.textSecondary, fontWeight: '600' },
+                          ]}
+                        >
+                          {medicamento.stockRestante}
+                        </Text>
+                      </View>
+                    }
+                    onPress={() => router.push(`/medicamento/${medicamento.id}/detalle`)}
+                    conSeparador={index < lista.length - 1}
+                  />
+                );
+              })}
             </Card>
-          </Pressable>
+            <Text style={[typography.caption, styles.pieGrupo, { color: colors.textTertiary }]}>
+              La cifra de la derecha son las unidades que quedan según las tomas registradas.
+            </Text>
+          </>
         )}
-      />
+      </ScrollView>
 
-      <Button
-        label="Añadir medicamento"
-        onPress={() => router.push('/medicamento/nuevo')}
-        accessibilityLabel="Añadir medicamento"
-      />
+      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+        <Button
+          label="Añadir medicamento"
+          icono={<Plus color="#FFFFFF" size={18} />}
+          onPress={() => router.push('/medicamento/nuevo')}
+          accessibilityLabel="Añadir medicamento"
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, gap: spacing.md },
-  tabs: { flexDirection: 'row', gap: spacing.xs },
-  tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
-  lista: { gap: spacing.sm, flexGrow: 1 },
-  fila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  info: { flex: 1, gap: spacing.xs },
+  container: { flex: 1 },
+  contenido: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+    flexGrow: 1,
+  },
+  tituloGrupo: { marginTop: spacing.xs, marginLeft: spacing.xs },
+  pieGrupo: { marginLeft: spacing.xs, marginTop: -spacing.xs },
+  badgeStock: {
+    minWidth: 34,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+  },
+  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });

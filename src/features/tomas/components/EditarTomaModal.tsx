@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { DateTimeField } from '@/components/DateTimeField';
+import { HojaModal } from '@/components/HojaModal';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
@@ -34,7 +36,7 @@ type Props = {
 };
 
 export function EditarTomaModal({ toma, onClose, onCambiado }: Props) {
-  const { colors, esOscuro } = useTheme();
+  const { colors } = useTheme();
   const actualizar = useActualizarToma();
   const eliminar = useEliminarToma();
 
@@ -83,58 +85,48 @@ export function EditarTomaModal({ toma, onClose, onCambiado }: Props) {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.fondo} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()}>
-          <Card style={styles.tarjeta}>
-            <Text style={[typography.subtitle, { color: colors.text }]}>{toma.nombreMedicamento}</Text>
+    <HojaModal visible titulo={toma.nombreMedicamento} onClose={onClose}>
+      <View style={styles.fila}>
+        <View style={styles.campoFlexible}>
+          <DateTimeField label="Fecha" mode="date" value={fecha} onChange={setFecha} />
+        </View>
+        <View style={styles.campoFlexible}>
+          <DateTimeField label="Hora" mode="time" value={fecha} onChange={setFecha} />
+        </View>
+      </View>
 
-            <View style={styles.fila}>
-              <DateTimeField label="Fecha" mode="date" value={fecha} onChange={setFecha} />
-              <DateTimeField label="Hora" mode="time" value={fecha} onChange={setFecha} />
-            </View>
+      <View style={styles.bloque}>
+        <Text style={[typography.caption, { color: colors.textSecondary }]}>Estado</Text>
+        {/* 'eliminada' es un tombstone interno (ver schema.ts), nunca seleccionable a mano. */}
+        <SegmentedControl
+          opciones={ESTADO_TOMA.filter((e) => e !== 'eliminada').map((e) => ({
+            valor: e,
+            etiqueta: ETIQUETA_ESTADO[e],
+          }))}
+          valor={estado}
+          onChange={setEstado}
+          desplazable
+        />
+      </View>
 
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>Estado</Text>
-            <View style={styles.opciones}>
-              {/* 'eliminada' es un tombstone interno (ver schema.ts), nunca seleccionable a mano. */}
-              {ESTADO_TOMA.filter((e) => e !== 'eliminada').map((e) => (
-                <Pressable
-                  key={e}
-                  onPress={() => setEstado(e)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: estado === e }}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: estado === e ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-                      borderColor: colors.textSecondary + '33',
-                    },
-                  ]}
-                >
-                  <Text style={[typography.bodySmall, { color: estado === e ? '#FFFFFF' : colors.text }]}>
-                    {ETIQUETA_ESTADO[e]}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+      {estado === 'omitido' && <TextField label="Motivo (opcional)" value={motivo} onChangeText={setMotivo} />}
 
-            {estado === 'omitido' && (
-              <TextField label="Motivo (opcional)" value={motivo} onChangeText={setMotivo} />
-            )}
-
-            <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} />
-            <Button label="Eliminar toma" variant="secondary" onPress={handleEliminar} />
-          </Card>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      <View style={styles.acciones}>
+        <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} disabled={guardando} />
+        <Button
+          label="Eliminar toma"
+          variant="danger"
+          icono={<Trash2 color={colors.error} size={18} />}
+          onPress={handleEliminar}
+        />
+      </View>
+    </HojaModal>
   );
 }
 
 const styles = StyleSheet.create({
-  fondo: { flex: 1, backgroundColor: '#00000088', justifyContent: 'center', padding: spacing.lg },
-  tarjeta: { gap: spacing.sm },
   fila: { flexDirection: 'row', gap: spacing.md },
-  opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
+  campoFlexible: { flex: 1 },
+  bloque: { gap: spacing.xs },
+  acciones: { gap: spacing.sm, marginTop: spacing.xs },
 });

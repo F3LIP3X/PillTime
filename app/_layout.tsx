@@ -5,12 +5,14 @@ import { StatusBar } from 'expo-status-bar';
 import { SQLiteProvider, openDatabaseSync } from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import { Pill } from 'lucide-react-native';
 
 import { DATABASE_NAME } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { useTheme } from '@/theme/useTheme';
 import { typography } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { radii } from '@/theme/radii';
 import { HorizontalLoader } from '@/components/HorizontalLoader';
 
 // Conexión aparte solo para aplicar migraciones antes de montar el árbol;
@@ -40,9 +42,12 @@ export default function RootLayout() {
 
   if (error) {
     return (
-      <View style={[styles.centrado, { backgroundColor: colors.background }]}>
-        <Text style={[typography.body, { color: colors.error }]}>
-          No se pudo preparar la base de datos: {error.message}
+      <View style={[styles.centrado, { backgroundColor: colors.background, padding: spacing.xl }]}>
+        <Text style={[typography.subtitle, styles.textoCentrado, { color: colors.text }]}>
+          No se pudo preparar la base de datos
+        </Text>
+        <Text style={[typography.bodySmall, styles.textoCentrado, { color: colors.textSecondary }]}>
+          {error.message}
         </Text>
       </View>
     );
@@ -50,7 +55,10 @@ export default function RootLayout() {
 
   if (!success) {
     return (
-      <View style={[styles.centrado, { backgroundColor: colors.background, gap: spacing.md }]}>
+      <View style={[styles.centrado, { backgroundColor: colors.background, gap: spacing.lg }]}>
+        <View style={[styles.marcaCirculo, { backgroundColor: colors.primarySoft }]}>
+          <Pill color={colors.primary} size={34} />
+        </View>
         <HorizontalLoader />
       </View>
     );
@@ -63,8 +71,10 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
+            headerTintColor: colors.primary,
             headerShadowVisible: false,
+            headerTitleStyle: { ...typography.subtitle, color: colors.text },
+            headerBackButtonDisplayMode: 'minimal',
             contentStyle: { backgroundColor: colors.background },
           }}
         >
@@ -82,4 +92,12 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  textoCentrado: { textAlign: 'center' },
+  marcaCirculo: {
+    width: 76,
+    height: 76,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

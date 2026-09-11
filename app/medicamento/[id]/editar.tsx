@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { TextField } from '@/components/TextField';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
@@ -12,8 +14,8 @@ import { useMedicamento } from '@/features/medicamentos/hooks/useMedicamento';
 import { useActualizarMedicamento } from '@/features/medicamentos/hooks/useActualizarMedicamento';
 
 const ETIQUETA_MOMENTO: Record<MomentoComida, string> = {
-  antes: 'Antes de comer',
-  despues: 'Después de comer',
+  antes: 'Antes',
+  despues: 'Después',
   ninguno: 'Indiferente',
 };
 
@@ -21,7 +23,7 @@ export default function EditarMedicamento() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const medicamentoId = Number(id);
   const router = useRouter();
-  const { colors, esOscuro } = useTheme();
+  const { colors } = useTheme();
   const { medicamento } = useMedicamento(medicamentoId);
   const actualizar = useActualizarMedicamento();
 
@@ -43,8 +45,10 @@ export default function EditarMedicamento() {
     setNotas(medicamento.notas ?? '');
   }, [medicamento]);
 
+  const puedeGuardar = nombre.trim().length > 0 && dosis.trim().length > 0;
+
   const handleGuardar = async () => {
-    if (!nombre.trim() || !dosis.trim()) return;
+    if (!puedeGuardar) return;
     setGuardando(true);
     try {
       await actualizar(medicamentoId, {
@@ -64,64 +68,71 @@ export default function EditarMedicamento() {
   if (!medicamento) return null;
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.container}>
-      <TextField label="Nombre" value={nombre} onChangeText={setNombre} />
-      <TextField label="Dosis" value={dosis} onChangeText={setDosis} />
+    <View style={[styles.pantalla, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.grupo}>
+          <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>Medicamento</Text>
+          <Card>
+            <TextField label="Nombre" value={nombre} onChangeText={setNombre} />
+            <TextField label="Dosis" value={dosis} onChangeText={setDosis} />
 
-      <View style={styles.fila}>
-        <TextField
-          label="Unidades por toma"
-          keyboardType="numeric"
-          value={unidadesPorToma}
-          onChangeText={setUnidadesPorToma}
-          style={styles.mitad}
-        />
-        <TextField
-          label="Stock inicial"
-          keyboardType="numeric"
-          value={stockInicial}
-          onChangeText={setStockInicial}
-          style={styles.mitad}
-        />
-      </View>
+            <View style={styles.fila}>
+              <View style={styles.campoFlexible}>
+                <TextField
+                  label="Unidades por toma"
+                  keyboardType="numeric"
+                  value={unidadesPorToma}
+                  onChangeText={setUnidadesPorToma}
+                />
+              </View>
+              <View style={styles.campoFlexible}>
+                <TextField
+                  label="Unidades en la caja"
+                  keyboardType="numeric"
+                  value={stockInicial}
+                  onChangeText={setStockInicial}
+                />
+              </View>
+            </View>
 
-      <View>
-        <Text style={[typography.caption, { color: colors.textSecondary }]}>Con la comida</Text>
-        <View style={styles.opciones}>
-          {MOMENTO_COMIDA.map((momento) => (
-            <Pressable
-              key={momento}
-              onPress={() => setMomentoComida(momento)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: momentoComida === momento }}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: momentoComida === momento ? colors.primary : esOscuro ? '#1B2626' : '#FFFFFF',
-                  borderColor: colors.textSecondary + '33',
-                },
-              ]}
-            >
-              <Text style={[typography.bodySmall, { color: momentoComida === momento ? '#FFFFFF' : colors.text }]}>
-                {ETIQUETA_MOMENTO[momento]}
-              </Text>
-            </Pressable>
-          ))}
+            <View style={styles.bloque}>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>Con la comida</Text>
+              <SegmentedControl
+                opciones={MOMENTO_COMIDA.map((m) => ({ valor: m, etiqueta: ETIQUETA_MOMENTO[m] }))}
+                valor={momentoComida}
+                onChange={setMomentoComida}
+              />
+            </View>
+          </Card>
         </View>
+
+        <View style={styles.grupo}>
+          <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>Notas</Text>
+          <Card>
+            <TextField label="Notas y alertas" value={notas} onChangeText={setNotas} multiline style={styles.notas} />
+          </Card>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.pieAccion, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+        <Button
+          label={guardando ? 'Guardando…' : 'Guardar cambios'}
+          onPress={handleGuardar}
+          disabled={!puedeGuardar || guardando}
+        />
       </View>
-
-      <TextField label="Notas / alertas (opcional)" value={notas} onChangeText={setNotas} multiline style={styles.notas} />
-
-      <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  pantalla: { flex: 1 },
+  container: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
+  grupo: { gap: spacing.sm },
+  tituloGrupo: { marginLeft: spacing.xs },
   fila: { flexDirection: 'row', gap: spacing.md },
-  mitad: { flex: 1 },
-  opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },
-  notas: { minHeight: 80 },
+  campoFlexible: { flex: 1 },
+  bloque: { gap: spacing.xs, marginTop: spacing.xs },
+  notas: { minHeight: 88, textAlignVertical: 'top', paddingTop: spacing.sm },
+  pieAccion: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });
