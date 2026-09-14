@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * Perfil único por instalación (decisión confirmada): no existe tabla de
@@ -177,6 +177,17 @@ export const tomas = sqliteTable('tomas', {
    * UNIQUE de SQLite, los NULL nunca se consideran iguales.
    */
   uniqueIndex('tomas_horario_fecha_unica').on(tabla.horarioId, tabla.fechaHoraProgramada),
+  /**
+   * Índices de rendimiento, medidos con una base de 3 años de uso intenso
+   * (≈ 40.000 tomas): sin ellos, las consultas por fecha (tomas de hoy,
+   * avisos, historial paginado) recorrían la tabla entera, y el stock
+   * agregaba todas las tomas construyendo un índice temporal cada vez.
+   */
+  index('tomas_fecha').on(tabla.fechaHoraProgramada),
+  index('tomas_medicamento_estado').on(tabla.medicamentoId, tabla.estado),
+  // "Pendientes de días anteriores": con solo tomas_fecha, SQLite recorría
+  // por fecha casi toda la tabla (fecha < hoy) y era más lento que sin índice.
+  index('tomas_estado_fecha').on(tabla.estado, tabla.fechaHoraProgramada),
 ]);
 
 /**
@@ -223,7 +234,11 @@ export const medidasSalud = sqliteTable('medidas_salud', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`(current_timestamp)`),
-});
+}, (tabla) => [
+  // Registros de un tipo (paginados por fecha) y gráficas por periodo.
+  index('medidas_tipo_fecha').on(tabla.tipo, tabla.fechaHora),
+  index('medidas_fecha').on(tabla.fechaHora),
+]);
 
 export const citasMedicas = sqliteTable('citas_medicas', {
   id: integer('id').primaryKey({ autoIncrement: true }),

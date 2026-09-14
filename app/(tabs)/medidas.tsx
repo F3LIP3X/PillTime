@@ -48,7 +48,7 @@ function Registros() {
   const [tipo, setTipo] = useState<TipoMedidaSalud>('tension');
   const [valores, setValores] = useState<ValoresFormularioMedida>(VACIO);
   const [intentado, setIntentado] = useState(false);
-  const { medidas, registrar, actualizar, eliminar, recargar } = useMedidasSalud(tipo);
+  const { medidas, registrar, actualizar, eliminar, recargar, cargarMas } = useMedidasSalud(tipo);
   const [medidaEditando, setMedidaEditando] = useState<Medida | null>(null);
 
   useFocusEffect(
@@ -77,6 +77,8 @@ function Registros() {
         contentContainerStyle={styles.lista}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onEndReached={cargarMas}
+        onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View style={styles.cabecera}>
             <Selector

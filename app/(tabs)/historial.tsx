@@ -52,7 +52,7 @@ function tituloDia(dateString: string) {
 export default function Historial() {
   const { colors } = useTheme();
   const db = useDb();
-  const { historial, recargar } = useHistorial();
+  const { historial, hayMas, recargar, cargarMas } = useHistorial();
   const [exportando, setExportando] = useState(false);
   const [tomaEditando, setTomaEditando] = useState<ItemHistorial | null>(null);
 
@@ -107,6 +107,13 @@ export default function Historial() {
         contentContainerStyle={styles.contenido}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
+        onEndReached={hayMas ? cargarMas : undefined}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          hayMas && historial.length > 0 ? (
+            <Text style={[typography.caption, styles.pie, { color: colors.textTertiary }]}>Cargando más…</Text>
+          ) : null
+        }
         ListEmptyComponent={
           <EmptyState
             icono={<History color={colors.primary} size={30} />}
@@ -192,5 +199,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
   },
   textos: { flex: 1, gap: 2 },
+  pie: { textAlign: 'center', paddingVertical: spacing.md },
   badge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radii.pill },
 });

@@ -224,6 +224,40 @@ inserta una fila de prueba, aplica la nueva migración, y comprueba
 Si se borra o falla la importación de un `.sql` en tiempo de build, revisa
 primero estos dos archivos antes de sospechar de Drizzle.
 
+## Rendimiento con mucho histórico
+
+Medido con una base sembrada de 3 años de uso intenso (≈ 40.000 tomas,
+6.600 medidas) en `better-sqlite3`; en un móvil, multiplicar por 5-10.
+Reglas que salieron de ahí:
+
+- **Ninguna lista de histórico se carga entera.** Historial
+  (`useHistorial`, 150 por página) y Registros de Medidas
+  (`useMedidasSalud`, 60) paginan por cursor `(fecha, id)` con
+  `onEndReached`. Antes Historial copiaba las 40.000 filas a JS en cada
+  foco. Al recargar por foco se vuelve a pedir tanto como había cargado,
+  para no perder el scroll. Si añades una lista de histórico, copia el patrón.
+- **Cursor, no OFFSET, y con el `lte` redundante.** La condición es
+  `fecha <= c.fecha AND (fecha < c.fecha OR id < c.id)`. Sin el `lte`,
+  SQLite no puede saltar al cursor por el índice y recorre desde el
+  principio en cada página (un OFFSET encubierto). Comprobado con
+  `EXPLAIN QUERY PLAN`: con él pasa de `SCAN` a `SEARCH`.
+- **Índices** (migración `0005`): `tomas(fecha_hora_programada)` para
+  todo lo que va por rango de fechas (tomas de hoy, avisos, historial);
+  `tomas(medicamento_id, estado)` para el stock (que antes construía un
+  índice temporal en cada consulta, ×7 más lento); `tomas(estado, fecha)`
+  para "pendientes de días anteriores" (con solo el de fecha, SQLite
+  recorría casi toda la tabla y era *más lento* que sin índices);
+  `medidas_salud(tipo, fecha_hora)` y `(fecha_hora)`. Antes de añadir o
+  quitar un índice, mide con `EXPLAIN QUERY PLAN` sobre datos sembrados:
+  un índice mal elegido puede empeorar una consulta.
+- Gráficas y su interpretación se calculan con `useMemo` sobre las filas
+  del periodo elegido (máximo un año), no sobre el histórico.
+
+Pendiente conocido: la exportación a PDF sigue metiendo todo el
+historial en un solo HTML. Es bajo demanda, pero con años de datos puede
+ser lenta o fallar; acotarla por periodo es un cambio de producto (qué
+se le enseña al médico) y no se ha decidido.
+
 ## Esquema de base de datos (`src/db/schema.ts`)
 
 Perfil único por instalación: **no existe tabla de perfiles ni columna
