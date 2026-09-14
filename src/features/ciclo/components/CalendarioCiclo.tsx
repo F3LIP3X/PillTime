@@ -41,7 +41,9 @@ export function diasDeCuadricula(mes: string): (string | null)[] {
 export function CalendarioCiclo({ mes, fases, diasConRegistro, hoy, sinOvulacion = false, onCambiarMes, onDiaPress }: Props) {
   const { colors } = useTheme();
   const [a, m] = mes.split('-').map(Number);
-  const titulo = new Date(a, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  const nombreMes = new Date(a, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  // Solo la primera letra: textTransform 'capitalize' ponía "Septiembre De 2026".
+  const titulo = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
   const celdas = diasDeCuadricula(mes);
   const semanas = Array.from({ length: celdas.length / 7 }, (_, i) => celdas.slice(i * 7, i * 7 + 7));
 
@@ -156,7 +158,7 @@ function ElementoLeyenda({ etiqueta, children }: { etiqueta: string; children: R
 const styles = StyleSheet.create({
   contenedor: { gap: spacing.xs },
   cabecera: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
-  titulo: { flex: 1, textAlign: 'center', textTransform: 'capitalize' },
+  titulo: { flex: 1, textAlign: 'center' },
   flecha: { padding: spacing.xs },
   semana: { flexDirection: 'row' },
   celdaCabecera: { flex: 1, textAlign: 'center' },
