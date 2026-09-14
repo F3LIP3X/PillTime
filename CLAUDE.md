@@ -26,6 +26,8 @@ npm run android       # abrir en Android
 npm run ios           # abrir en iOS
 npm run web           # abrir en web
 npm run typecheck     # tsc --noEmit
+npm run build:apk     # APK instalable, compilado en la nube de EAS (perfil preview)
+npm run build:dev     # APK de development build, en la nube de EAS
 npm run db:generate   # genera migración SQL a partir de src/db/schema.ts
 npm run db:studio     # Drizzle Studio sobre el esquema local
 ```
@@ -698,8 +700,13 @@ completa; se descartó a propósito por ahora.
 
 ## Compilar el APK (EAS Build)
 
-No hay Android SDK en el entorno de desarrollo, así que las builds van
-por la nube de Expo. `eas.json` define tres perfiles:
+**Las builds van SIEMPRE por la nube de Expo, nunca en local.** Decisión
+del usuario: una build local (`eas build --local`, `expo run:android`,
+Gradle) arranca Java y se come todos los recursos de WSL hasta tumbarlo.
+No uses `--local` ni propongas compilar en WSL; si algún día hace falta
+compilar en local, que sea desde Windows. `npm run build:apk` /
+`npm run build:dev` lanzan la build en EAS con `--no-wait` y devuelven el
+enlace a los logs. `eas.json` define tres perfiles:
 
 - `development`: APK con `expo-dev-client`. Se instala una vez y luego
   `npm start` recarga los cambios al vuelo — es la forma de iterar con

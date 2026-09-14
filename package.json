@@ -43,6 +43,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "build:apk": "eas build --platform android --profile preview --no-wait",
+    "build:dev": "eas build --platform android --profile development --no-wait",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio"
   },
