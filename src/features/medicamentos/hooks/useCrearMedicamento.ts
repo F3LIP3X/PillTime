@@ -1,48 +1,32 @@
 import { useCallback } from 'react';
 import { sql } from 'drizzle-orm';
 
-import { useDb } from '@/db/client';
-import { codigosBarrasAprendidos, medicamentos, type MomentoComida } from '@/db/schema';
+import { useDb, type Db } from '@/db/client';
+import { codigosBarrasAprendidos, medicamentos } from '@/db/schema';
+import type { DatosMedicamento } from '../formulario';
 
-export type NuevoMedicamento = {
-  nombre: string;
-  dosis: string;
-  unidadesPorToma: number;
-  stockInicial: number;
-  momentoComida?: MomentoComida;
-  codigoBarras?: string;
-  notas?: string;
-};
+/**
+ * Aprendizaje reutilizable: si el medicamento tiene código de barras, se
+ * guarda/actualiza nombre y dosis para autocompletar el próximo escaneo.
+ */
+export async function aprenderCodigoBarras(db: Db, datos: DatosMedicamento) {
+  if (!datos.codigoBarras) return;
+  await db
+    .insert(codigosBarrasAprendidos)
+    .values({ codigoBarras: datos.codigoBarras, nombre: datos.nombre, dosis: datos.dosis, notas: datos.notas })
+    .onConflictDoUpdate({
+      target: codigosBarrasAprendidos.codigoBarras,
+      set: { nombre: datos.nombre, dosis: datos.dosis, notas: datos.notas, updatedAt: sql`(current_timestamp)` },
+    });
+}
 
 export function useCrearMedicamento() {
   const db = useDb();
 
   return useCallback(
-    async (datos: NuevoMedicamento) => {
+    async (datos: DatosMedicamento) => {
       const [medicamento] = await db.insert(medicamentos).values(datos).returning();
-
-      // Aprendizaje reutilizable: si el alta vino de un código de barras,
-      // se guarda/actualiza para autocompletar la próxima vez que se escanee.
-      if (datos.codigoBarras) {
-        await db
-          .insert(codigosBarrasAprendidos)
-          .values({
-            codigoBarras: datos.codigoBarras,
-            nombre: datos.nombre,
-            dosis: datos.dosis,
-            notas: datos.notas,
-          })
-          .onConflictDoUpdate({
-            target: codigosBarrasAprendidos.codigoBarras,
-            set: {
-              nombre: datos.nombre,
-              dosis: datos.dosis,
-              notas: datos.notas,
-              updatedAt: sql`(current_timestamp)`,
-            },
-          });
-      }
-
+      await aprenderCodigoBarras(db, datos);
       return medicamento;
     },
     [db],

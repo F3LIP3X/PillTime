@@ -22,6 +22,13 @@
       "when": 1789386553395,
       "tag": "0002_curious_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789387630982,
+      "tag": "0003_rainy_talkback",
+      "breakpoints": true
     }
   ]
 }

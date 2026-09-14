@@ -1,0 +1,1 @@
+ALTER TABLE `medicamentos` ADD `fecha_caducidad` text;

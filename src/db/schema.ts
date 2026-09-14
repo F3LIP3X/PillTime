@@ -50,6 +50,14 @@ export const medicamentos = sqliteTable('medicamentos', {
   codigoBarras: text('codigo_barras').unique(),
   /** Ficha informativa básica / alertas asociadas, redactada por el usuario. */
   notas: text('notas'),
+  /** Fecha de caducidad de la caja, "YYYY-MM-DD" local (un día del calendario, no un instante). Opcional. */
+  fechaCaducidad: text('fecha_caducidad'),
+  /**
+   * false = "Terminado": un tratamiento que acabó (solo, al pasar el fin
+   * de todas sus pautas, o a mano). Sale de Inicio y de los avisos pero
+   * conserva historial, y se puede reactivar con una pauta nueva. Borrar
+   * de verdad es otra acción distinta (useEliminarMedicamento).
+   */
   activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at')
     .notNull()

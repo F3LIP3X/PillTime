@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { horariosMedicamento, medicamentos } from '@/db/schema';
@@ -16,7 +16,9 @@ export function useMedicamento(id: number) {
     const filasHorarios = await db
       .select()
       .from(horariosMedicamento)
-      .where(eq(horariosMedicamento.medicamentoId, id));
+      // Solo las activas: una pauta quitada (activo=false) ya no es parte del
+      // medicamento, aunque siga en la tabla por su historial.
+      .where(and(eq(horariosMedicamento.medicamentoId, id), eq(horariosMedicamento.activo, true)));
     setHorarios(filasHorarios);
   }, [db, id]);
 

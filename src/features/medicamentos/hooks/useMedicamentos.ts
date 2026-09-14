@@ -13,6 +13,7 @@ export type MedicamentoConStock = {
   /** stockInicial − (tomas 'tomado' × unidadesPorToma). No depende de horarioId: cuenta toda toma marcada como tomada, tenga o no horario asociado. */
   stockRestante: number;
   activo: boolean;
+  fechaCaducidad: string | null;
 };
 
 export function useMedicamentos(opciones: { soloActivos?: boolean } = {}) {
@@ -33,6 +34,7 @@ export function useMedicamentos(opciones: { soloActivos?: boolean } = {}) {
         stockInicial: medicamentos.stockInicial,
         unidadesPorToma: medicamentos.unidadesPorToma,
         activo: medicamentos.activo,
+        fechaCaducidad: medicamentos.fechaCaducidad,
         tomasRegistradas: tomadas,
       })
       .from(medicamentos)
