@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { tomas, type EstadoToma } from '@/db/schema';
+import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 
 export type DatosToma = {
   fechaHoraProgramada: string;
@@ -25,6 +26,7 @@ export function useActualizarToma() {
           fechaHoraRegistrada: datos.estado === 'pendiente' ? null : new Date().toISOString(),
         })
         .where(eq(tomas.id, tomaId));
+      void sincronizarNotificaciones(db);
     },
     [db],
   );
@@ -41,6 +43,7 @@ export function useEliminarToma() {
   return useCallback(
     async (tomaId: number) => {
       await db.update(tomas).set({ estado: 'eliminada' }).where(eq(tomas.id, tomaId));
+      void sincronizarNotificaciones(db);
     },
     [db],
   );

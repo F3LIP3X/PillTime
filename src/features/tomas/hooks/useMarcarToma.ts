@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { tomas } from '@/db/schema';
+import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 
 export function useMarcarToma() {
   const db = useDb();
@@ -13,6 +14,8 @@ export function useMarcarToma() {
         .update(tomas)
         .set({ estado: 'tomado', fechaHoraRegistrada: new Date().toISOString() })
         .where(eq(tomas.id, tomaId));
+      // Una toma resuelta deja de avisar (también si se marca antes de su hora).
+      void sincronizarNotificaciones(db);
     },
     [db],
   );
@@ -27,6 +30,8 @@ export function useMarcarToma() {
           motivoOmision: motivo,
         })
         .where(eq(tomas.id, tomaId));
+      // Una toma resuelta deja de avisar (también si se marca antes de su hora).
+      void sincronizarNotificaciones(db);
     },
     [db],
   );
@@ -37,6 +42,8 @@ export function useMarcarToma() {
         .update(tomas)
         .set({ estado: 'pendiente', fechaHoraRegistrada: null, motivoOmision: null })
         .where(eq(tomas.id, tomaId));
+      // Una toma resuelta deja de avisar (también si se marca antes de su hora).
+      void sincronizarNotificaciones(db);
     },
     [db],
   );

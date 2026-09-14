@@ -1,16 +1,11 @@
 import type * as NotificacionesTipo from 'expo-notifications';
-import { and, eq } from 'drizzle-orm';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import type { Db } from '@/db/client';
-import { horariosMedicamento, medicamentos, type MomentoComida } from '@/db/schema';
-
-type TomaProgramada = {
-  fechaHoraProgramada: string;
-  nombreMedicamento: string;
-  momentoComida: MomentoComida | null;
-};
+import { cargarOcurrencias } from '@/features/tomas/cargarOcurrencias';
+import { MS_DIA } from '@/features/tomas/ocurrencias';
+import { agruparPorMinuto, contenidoDeAviso } from './agrupar';
 
 type ModuloNotificaciones = typeof NotificacionesTipo;
 
@@ -134,174 +129,97 @@ export async function solicitarPermisoNotificaciones(): Promise<boolean> {
   }
 }
 
-type HorarioConMedicamento = {
-  hora: string;
-  diasSemana: string;
-  nombreMedicamento: string;
-  momentoComida: MomentoComida | null;
-};
-
-type GrupoNotificacion = {
-  hora: string;
-  dias: number[]; // ISO: 1=lunes … 7=domingo
-  medicamentos: { nombre: string; momentoComida: MomentoComida | null }[];
-};
-
-function parseDiasSemana(csv: string): number[] {
-  return csv.split(',').map(Number);
-}
-
-/** ISO 1=lunes…7=domingo → Expo Notifications 0=domingo…6=sábado. */
-function isoADiaExpo(diaIso: number): number {
-  return diaIso === 7 ? 0 : diaIso;
-}
+/**
+ * Cuántos días por delante se programan avisos, y cuántos como máximo.
+ *
+ * Todos los avisos son puntuales (trigger DATE), así que hay que
+ * programarlos con antelación y renovar la ventana: se hace cada vez que
+ * se abre Inicio y tras cualquier cambio en tomas o medicamentos. Si la
+ * app no se abre en VENTANA_DIAS días, los avisos se acaban.
+ *
+ * El tope existe porque los sistemas limitan las alarmas por app: iOS
+ * solo conserva 64 notificaciones locales programadas y muchos Android
+ * (Samsung en particular) rechazan pasar de 500.
+ */
+const VENTANA_DIAS = 14;
+const MAX_AVISOS = Platform.OS === 'ios' ? 60 : 300;
 
 /**
- * Agrupa horarios que coinciden en hora exacta y mismos días para emitir
- * una sola notificación con varios medicamentos, en vez de una por
- * medicamento (evita fatiga de notificaciones, ver análisis de MyTherapy).
+ * Deja programados en el sistema exactamente los avisos de las tomas
+ * pendientes de los próximos días: cancela todo y vuelve a programar a
+ * partir de SQLite.
+ *
+ * Sustituye a las dos funciones anteriores (triggers WEEKLY recurrentes
+ * para 'semanal' + DATE para 'intervalo'), que tenían tres fallos reales:
+ * 1. Un aviso semanal recurrente no sabe nada del estado de la toma: al
+ *    omitirla (o eliminarla, o tomarla antes de hora) seguía sonando.
+ * 2. Mapeaban el día ISO al `weekday` de Expo como si 0 fuera domingo,
+ *    pero Expo usa 1=domingo…7=sábado. Todos los avisos caían un día
+ *    antes y el domingo salía `weekday: 0`, que lanza RangeError: como el
+ *    bucle iba dentro de un solo try/catch, a partir de ahí ya no se
+ *    programaba nada más (de ahí "solo avisa de uno").
+ * 3. Reprogramar las semanales cancelaba también los avisos de los
+ *    tratamientos por intervalo.
+ * Ahora todo sale de un único cálculo (`cargarOcurrencias`), así que
+ * cancelarlo todo es correcto: lo que siga pendiente vuelve a programarse.
+ *
+ * Las llamadas se serializan: si llega una mientras otra está en marcha,
+ * se repite al acabar en vez de solaparse (dos "cancelar todo + programar"
+ * intercalados dejarían avisos duplicados).
+ *
+ * Nunca lanza: guardar datos no debe depender de que haya notificaciones
+ * (Expo Go en Android, permiso denegado…).
  */
-export function agruparHorariosCoincidentes(filas: HorarioConMedicamento[]): GrupoNotificacion[] {
-  const grupos = new Map<string, GrupoNotificacion>();
+let sincronizacionEnCurso: Promise<void> | null = null;
+let repetirSincronizacion = false;
 
-  for (const fila of filas) {
-    const dias = parseDiasSemana(fila.diasSemana);
-    const clave = `${fila.hora}|${[...dias].sort().join(',')}`;
-
-    const existente = grupos.get(clave);
-    if (existente) {
-      existente.medicamentos.push({ nombre: fila.nombreMedicamento, momentoComida: fila.momentoComida });
-    } else {
-      grupos.set(clave, {
-        hora: fila.hora,
-        dias,
-        medicamentos: [{ nombre: fila.nombreMedicamento, momentoComida: fila.momentoComida }],
-      });
-    }
+export function sincronizarNotificaciones(db: Db): Promise<void> {
+  if (sincronizacionEnCurso) {
+    repetirSincronizacion = true;
+    return sincronizacionEnCurso;
   }
 
-  return Array.from(grupos.values());
+  sincronizacionEnCurso = (async () => {
+    do {
+      repetirSincronizacion = false;
+      await sincronizarUnaVez(db);
+    } while (repetirSincronizacion);
+  })().finally(() => {
+    sincronizacionEnCurso = null;
+  });
+
+  return sincronizacionEnCurso;
 }
 
-function textoMomentoComida(m: MomentoComida | null): string {
-  if (m === 'antes') return ' (antes de comer)';
-  if (m === 'despues') return ' (después de comer)';
-  return '';
-}
-
-function contenidoDeGrupo(grupo: GrupoNotificacion) {
-  const cuerpo = grupo.medicamentos
-    .map((m) => `${m.nombre}${textoMomentoComida(m.momentoComida)}`)
-    .join(', ');
-
-  return {
-    title: grupo.medicamentos.length > 1 ? 'Es hora de tus medicamentos' : 'Es hora de tu medicamento',
-    body: cuerpo,
-  };
-}
-
-/**
- * Reprograma TODAS las notificaciones de horarios 'semanal' (medicación
- * crónica) a partir de los horarios activos. Se cancela todo lo anterior
- * primero: es más simple y fiable que calcular un diff, y el volumen de
- * notificaciones programadas por un uso doméstico normal es bajo.
- *
- * LIMITACIÓN CONOCIDA: `cancelAllScheduledNotificationsAsync()` cancela
- * TODO lo que haya programado en el sistema, incluidas las notificaciones
- * puntuales de un tratamiento por intervalo (`programarNotificacionesTratamiento`).
- * Si el usuario tiene un tratamiento en curso y luego da de alta un
- * medicamento crónico nuevo, esta función se llama y borra sin querer los
- * recordatorios pendientes de ese tratamiento. Arreglarlo bien exige
- * guardar los identificadores de notificación devueltos por
- * `scheduleNotificationAsync` (p. ej. en la propia fila de `tomas`) para
- * cancelar solo lo que corresponde a horarios 'semanal', en vez de cancelar
- * todo — no se ha hecho todavía porque solo se puede reproducir con
- * notificaciones realmente funcionando (development build), no en Expo Go.
- *
- * Nunca lanza: si expo-notifications no está disponible en el entorno
- * actual (Expo Go en Android desde SDK 53 — hace falta una development
- * build ahí — o el usuario denegó el permiso), se registra un aviso y se
- * continúa sin programar nada. Guardar un medicamento/horario en SQLite
- * no debe depender de que la programación de notificaciones tenga éxito.
- */
-export async function reprogramarNotificaciones(db: Db) {
+async function sincronizarUnaVez(db: Db) {
   const Notifications = cargarNotificaciones();
   if (!Notifications) return;
 
   try {
+    const ahora = new Date();
+    const ocurrencias = await cargarOcurrencias(db, ahora, new Date(ahora.getTime() + VENTANA_DIAS * MS_DIA));
+    const grupos = agruparPorMinuto(ocurrencias)
+      .filter((g) => g.fecha.getTime() > ahora.getTime())
+      .slice(0, MAX_AVISOS);
+
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    const filas = await db
-      .select({
-        hora: horariosMedicamento.hora,
-        diasSemana: horariosMedicamento.diasSemana,
-        nombreMedicamento: medicamentos.nombre,
-        momentoComida: medicamentos.momentoComida,
-      })
-      .from(horariosMedicamento)
-      .innerJoin(medicamentos, eq(medicamentos.id, horariosMedicamento.medicamentoId))
-      .where(and(eq(horariosMedicamento.activo, true), eq(horariosMedicamento.tipo, 'semanal')));
-
-    // 'semanal' garantiza hora/diasSemana no nulos a nivel de aplicación
-    // (ver comentario en schema.ts), pero el tipo de columna sigue siendo
-    // nullable — de ahí el `!`.
-    const grupos = agruparHorariosCoincidentes(
-      filas.map((f) => ({ ...f, hora: f.hora!, diasSemana: f.diasSemana! })),
-    );
-
     for (const grupo of grupos) {
-      const [hour, minute] = grupo.hora.split(':').map(Number);
-      const contenido = contenidoDeGrupo(grupo);
-
-      for (const diaIso of grupo.dias) {
+      // try/catch por aviso: que uno falle no debe dejar sin programar el resto.
+      try {
         await Notifications.scheduleNotificationAsync({
-          content: contenido,
+          content: contenidoDeAviso(grupo),
           trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-            weekday: isoADiaExpo(diaIso),
-            hour,
-            minute,
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: grupo.fecha,
             channelId: CANAL_RECORDATORIOS,
           },
         });
+      } catch (error) {
+        console.warn('No se pudo programar un aviso:', error);
       }
     }
   } catch (error) {
-    console.warn('No se pudieron reprogramar las notificaciones:', error);
-  }
-}
-
-/**
- * Programa una notificación puntual (no recurrente) por cada toma de un
- * tratamiento por intervalo recién creado — a diferencia de 'semanal', no
- * hay "grupo horario" que reprogramar: cada toma ya tiene su
- * fecha/hora exacta calculada de antemano (ver useCrearTratamientoIntervalo),
- * así que cada una es un trigger de tipo DATE independiente. No agrupa
- * con otras tomas coincidentes de otros medicamentos (a diferencia de
- * `reprogramarNotificaciones`) — simplificación aceptada mientras el
- * volumen de tratamientos simultáneos sea bajo.
- *
- * Nunca lanza, por la misma razón que reprogramarNotificaciones.
- */
-export async function programarNotificacionesTratamiento(tomasProgramadas: TomaProgramada[]) {
-  const Notifications = cargarNotificaciones();
-  if (!Notifications) return;
-
-  try {
-    for (const toma of tomasProgramadas) {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Es hora de tu medicamento',
-          body: `${toma.nombreMedicamento}${textoMomentoComida(toma.momentoComida)}`,
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: new Date(toma.fechaHoraProgramada),
-          channelId: CANAL_RECORDATORIOS,
-        },
-      });
-    }
-  } catch (error) {
-    console.warn('No se pudieron programar las notificaciones del tratamiento:', error);
+    console.warn('No se pudieron sincronizar las notificaciones:', error);
   }
 }

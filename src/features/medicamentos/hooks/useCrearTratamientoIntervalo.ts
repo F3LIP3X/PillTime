@@ -1,13 +1,11 @@
 import { useCallback } from 'react';
 
 import { useDb } from '@/db/client';
-import { horariosMedicamento, tomas, type MomentoComida } from '@/db/schema';
-import { programarNotificacionesTratamiento } from '@/features/notificaciones/scheduler';
+import { horariosMedicamento, tomas } from '@/db/schema';
+import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 
 export type NuevoTratamientoIntervalo = {
   medicamentoId: number;
-  nombreMedicamento: string;
-  momentoComida: MomentoComida | null;
   fechaHoraInicio: Date;
   /** Cada cuántas horas se repite la toma, ej. 8 = "cada 8 horas". */
   frecuenciaHoras: number;
@@ -55,16 +53,9 @@ export function useCrearTratamientoIntervalo() {
             estado: 'pendiente' as const,
           })),
         );
-
-        await programarNotificacionesTratamiento(
-          fechasProgramadas.map((fechaHoraProgramada) => ({
-            fechaHoraProgramada,
-            nombreMedicamento: datos.nombreMedicamento,
-            momentoComida: datos.momentoComida,
-          })),
-        );
       }
 
+      void sincronizarNotificaciones(db);
       return horario;
     },
     [db],

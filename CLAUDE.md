@@ -83,14 +83,38 @@ conexiones al mismo archivo a propósito — es el patrón oficial de
 Drizzle + expo-sqlite, no una que se pueda "simplificar" a una sola sin
 romper `useMigrations`.
 
+**Qué toma toca y cuándo sale de un único cálculo:
+`src/features/tomas/ocurrencias.ts`** (`calcularOcurrencias`, puro, sin
+base de datos) cargado desde SQLite por `cargarOcurrencias.ts`. Devuelve
+las tomas pendientes de un rango: las filas `pendiente` que ya existen y
+las "virtuales" de pautas `'semanal'` que aún no tienen fila. Lo usan los
+avisos, la generación de las tomas de hoy y la lista "Próximas tomas" del
+detalle. Antes cada sitio lo calculaba a su manera y por eso una toma
+omitida seguía avisando. Si necesitas saber qué toca en otro sitio, usa
+esto; no vuelvas a recorrer `horarios_medicamento` a mano.
+
+Dos reglas del cálculo que no son evidentes: una fila de una pauta
+semanal se empareja con su ocurrencia **por día local, no por instante
+exacto** (así editar la hora de una toma no hace que la pauta regenere
+otra a la hora original), y cualquier fila que ya no esté `pendiente`
+(tomada, omitida, eliminada) anula la ocurrencia de ese día.
+
 **Las tomas del día no se precrean en segundo plano.** `useAsegurarTomasDeHoy`
-(en `app/(tabs)/index.tsx`, vía `useFocusEffect`) genera, de forma
-idempotente, las filas `pendiente` de `tomas` para los horarios activos
-que coinciden con el día de hoy, cada vez que se abre la pantalla de
-Inicio. Si la app no se abre un día, ese día no queda registrado como
+(en `app/(tabs)/index.tsx`, vía `useFocusEffect`) crea, de forma
+idempotente, las filas `pendiente` de hoy que el cálculo anterior da
+como virtuales, cada vez que se abre la pantalla de Inicio. Las
+ejecuciones solapadas se reutilizan y el insert lleva
+`onConflictDoNothing` sobre el índice único: bug real de tomas
+duplicadas (al omitir una, su gemela seguía "apareciendo"). Si la app no se abre un día, ese día no queda registrado como
 "omitido" — no hay un cron ni una tarea en segundo plano. Si esto
 cambia (por ejemplo al añadir un cumplimiento global que dependa de que
 todos los días queden registrados), hay que revisar esta función primero.
+
+**Quitar una toma concreta** (detalle del medicamento → "Próximas tomas",
+7 días): si la toma ya tiene fila pasa a tumba `'eliminada'`; si es
+virtual se inserta directamente como tumba, que es lo que impide que la
+pauta la genere después (`eliminarOcurrencia`). El resto de la pauta no
+cambia.
 
 **Archivar, no borrar.** `useArchivarMedicamento` pone `activo = false`
 en vez de borrar la fila; `useMedicamentos()` filtra `activo = true` por
@@ -153,6 +177,12 @@ la vieja + renombrar). Ya ha generado al menos una vez un `INSERT INTO
 __new_tabla SELECT columnas_nuevas FROM tabla_vieja` leyendo de la tabla
 vieja columnas que no existen ahí todavía (las que la propia migración
 está añadiendo) — rompería en cualquier dispositivo que ya tuviera datos.
+Lo mismo con un índice `UNIQUE` nuevo: `drizzle-kit` genera el `CREATE
+UNIQUE INDEX` sin más, y en un dispositivo con filas duplicadas la
+migración falla. `0002` lleva a mano un `DELETE` previo que conserva, de
+cada grupo duplicado, la fila resuelta (tomado > omitido > pospuesto >
+eliminada > pendiente). Si regeneras migraciones, no pierdas ese paso.
+
 Antes de dar una migración de este tipo por buena, simúlala con
 `better-sqlite3` en un script desechable: aplica la migración anterior,
 inserta una fila de prueba, aplica la nueva migración, y comprueba
@@ -175,7 +205,7 @@ Tablas: `medicamentos`, `horarios_medicamento`, `tomas`,
 `stockInicial − SUM(unidadesPorToma)` de las tomas en estado `tomado`
 (ver `useMedicamentos`).
 
-### Dos decisiones de esquema que no son obvias leyendo el código superficialmente
+### Decisiones de esquema que no son obvias leyendo el código superficialmente
 
 **1. `tomas.horarioId` es nullable a propósito.** Permite tomas
 puntuales/manuales que no vienen de una pauta fija en
@@ -222,14 +252,25 @@ generación de tomas opuestos, no una variación menor del mismo:
   (`useCrearTratamientoIntervalo`), porque el fin se conoce desde el
   principio.
 
-Por eso `hora`/`diasSemana` (solo aplican a 'semanal') y
-`frecuenciaHoras`/`fechaHoraInicio`/`duracionDias` (solo a 'intervalo')
-son todas nullable a nivel de columna — la obligatoriedad real según
+Por eso `hora`/`diasSemana`/`fechaFin` (solo aplican a 'semanal') y
+`frecuenciaHoras`/`duracionDias` (solo a 'intervalo') son todas nullable
+a nivel de columna — la obligatoriedad real según
 `tipo` se valida en los hooks, no en el esquema. `useAsegurarTomasDeHoy`
 y `useCumplimientoPorFranja` filtran explícitamente `tipo='semanal'`; si
 se te ocurre "generalizarlos" para que traten ambos tipos igual, primero
 piensa en que 'intervalo' ya tiene sus tomas creadas y no tiene una
 "franja horaria" fija que atribuirle.
+
+Dentro de `'semanal'` hay dos duraciones (petición de beta testers):
+**indefinida** (`fechaFin = null`, p. ej. sertralina de por vida) o **con
+fecha límite** (`fechaFin` = último día incluido, como fecha local
+`"YYYY-MM-DD"`, no un instante ISO). Se eligió un solo campo nullable en
+vez de un enum `duracion` + fecha, que permitiría combinaciones sin
+sentido (fecha límite sin fecha). `fechaHoraInicio` también se usa ahora
+en `'semanal'`: es el momento en que se creó la pauta, y no se generan
+tomas ni avisos anteriores a él (antes, dar de alta a las 20:00 algo
+"diario a las 9:00" creaba al instante una toma de hoy "Atrasada"). Las
+pautas semanales anteriores a este cambio lo tienen a `null` = sin límite.
 
 **4. `tomas.estado = 'eliminada'` es un estado tumba (tombstone), no un
 estado real.** `useEliminarToma` NUNCA hace `DELETE` físico de la fila
@@ -246,7 +287,9 @@ valor al enum de TypeScript no toca el esquema SQL).
 
 Efecto en cada sitio que lee `tomas`, para que una "limpieza" no la
 vuelva a hacer visible sin querer:
-- `useTomasDeHoy` y `useHistorial`: excluyen `estado != 'eliminada'`
+- `calcularOcurrencias`: una tumba anula la ocurrencia de su pauta ese
+  día, así que no se regenera ni avisa.
+- `useProximaTomaPorMedicamento` y `useHistorial`: excluyen `estado != 'eliminada'`
   explícitamente — si no, la fila tumba aparecería en las listas.
 - `useCumplimientoPorFranja`: también la excluye, de ambos lados
   (numerador y denominador) — no cuenta como "programada" ni como
@@ -256,36 +299,52 @@ vuelva a hacer visible sin querer:
 - `EditarTomaModal`: filtra `'eliminada'` de los chips de estado
   seleccionables — no es una opción que el usuario elija a mano.
 
+**5. Índice único `tomas(horario_id, fecha_hora_programada)`.** Una pauta
+no puede tener dos tomas en el mismo instante. Las manuales
+(`horarioId = null`) no chocan: en un índice `UNIQUE` de SQLite los NULL
+nunca son iguales, así que no contradice la decisión 1. Efecto visible:
+mover una toma con `EditarTomaModal` encima de otra de la misma pauta
+falla, y el modal lo explica en vez de reventar.
+
 ## Notificaciones locales
 
-Dos funciones, una por tipo de horario — no comparten lógica de
-agrupación porque el tipo de trigger es distinto:
+**Una sola función, `sincronizarNotificaciones(db)`**
+(`src/features/notificaciones/scheduler.ts`): cancela todo lo programado y
+vuelve a programar, con triggers `DATE` puntuales, los avisos de las
+tomas pendientes de los próximos 14 días según `cargarOcurrencias`. Se
+agrupan por minuto (`agrupar.ts`): un aviso con todos los medicamentos de
+ese minuto, sea cual sea su tipo de pauta, una línea por medicamento
+(Android aplica `BigTextStyle`, se leen todos al expandir).
 
-- `reprogramarNotificaciones` (horarios `'semanal'`): agrupa horarios que
-  coinciden en hora exacta y mismos días (`agruparHorariosCoincidentes`)
-  para emitir una sola notificación con varios medicamentos en vez de una
-  por medicamento (evita fatiga de notificaciones, función tomada de
-  MyTherapy — ver `docs/analisis-competencia.md`), con un trigger
-  `WEEKLY` recurrente por día de la semana.
-- `programarNotificacionesTratamiento` (horarios `'intervalo'`): una
-  notificación puntual (trigger `DATE`, no recurrente) por cada toma ya
-  generada del tratamiento. No agrupa con otras tomas coincidentes de
-  otros medicamentos — simplificación aceptada mientras el volumen de
-  tratamientos simultáneos sea bajo.
-  **Limitación conocida sin resolver:** `reprogramarNotificaciones`
-  cancela TODAS las notificaciones programadas en el sistema
-  (`cancelAllScheduledNotificationsAsync`) antes de reprogramar solo las
-  `'semanal'` — si hay un tratamiento por intervalo en curso y luego se
-  da de alta un medicamento crónico nuevo, sus recordatorios pendientes
-  se borran sin querer. Arreglarlo bien exige guardar los identificadores
-  que devuelve `scheduleNotificationAsync` para cancelar solo lo que
-  corresponde a `'semanal'`, en vez de cancelar todo. No se ha hecho
-  porque solo se puede verificar con notificaciones funcionando de
-  verdad (development build), no en Expo Go.
+Se llama tras cualquier escritura que cambie qué toca (marcar, editar o
+quitar tomas; crear pauta o tratamiento; editar o archivar medicamento),
+siempre desde el hook que escribe y sin `await` para no frenar la
+interfaz, y al abrir Inicio, que renueva la ventana. Las llamadas se
+serializan: dos "cancelar todo + programar" intercalados duplicarían
+avisos. Si añades una mutación nueva sobre tomas, horarios o
+medicamentos, llama a `sincronizarNotificaciones` desde su hook.
 
-El texto añade "(antes/después de comer)" cuando aplica. El mapeo de días
-es ISO (1=lunes…7=domingo) en el esquema → formato de Expo Notifications
-(0=domingo…6=sábado) vía `isoADiaExpo`.
+Sustituye a un diseño anterior con triggers `WEEKLY` recurrentes para
+`'semanal'` y `DATE` para `'intervalo'`, que tenía tres fallos reportados
+por beta testers:
+1. Un aviso recurrente no sabe nada del estado de la toma: al omitirla o
+   eliminarla seguía sonando.
+2. **Expo numera `weekday` de 1 a 7 con 1 = domingo** (no 0 = domingo).
+   El mapeo estaba mal: todos los avisos caían un día antes y el domingo
+   salía `weekday: 0`, que lanza `RangeError`. Como el bucle entero iba
+   en un solo `try/catch`, a partir de ahí no se programaba nada más (de
+   ahí "con varios a la misma hora solo sale uno"). Ahora cada
+   `scheduleNotificationAsync` tiene su propio `try/catch`.
+3. Reprogramar las semanales cancelaba los avisos de los tratamientos.
+
+Límites asumidos: si la app no se abre en 14 días, los avisos se acaban
+(no hay tarea en segundo plano que renueve la ventana). Tope de 300
+avisos en Android (muchos fabricantes rechazan pasar de 500 alarmas por
+app) y 60 en iOS (que solo conserva 64). No se usan identificadores
+propios de notificación: como todo sale de SQLite, cancelar todo y
+reprogramar es correcto y más simple que un diff.
+
+El texto añade "(antes/después de comer)" cuando aplica.
 
 **`expo-notifications` no funciona en Expo Go en Android (desde SDK 53),
 ni siquiera para notificaciones locales** — hace falta una development

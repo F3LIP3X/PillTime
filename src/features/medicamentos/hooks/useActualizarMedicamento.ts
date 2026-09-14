@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { useDb } from '@/db/client';
 import { medicamentos, type MomentoComida } from '@/db/schema';
+import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 
 export type DatosMedicamento = {
   nombre: string;
@@ -19,6 +20,8 @@ export function useActualizarMedicamento() {
   return useCallback(
     async (id: number, datos: DatosMedicamento) => {
       await db.update(medicamentos).set(datos).where(eq(medicamentos.id, id));
+      // El texto del aviso lleva nombre, dosis y momento de la comida.
+      void sincronizarNotificaciones(db);
     },
     [db],
   );
@@ -30,6 +33,7 @@ export function useArchivarMedicamento() {
   return useCallback(
     async (id: number) => {
       await db.update(medicamentos).set({ activo: false }).where(eq(medicamentos.id, id));
+      void sincronizarNotificaciones(db);
     },
     [db],
   );
