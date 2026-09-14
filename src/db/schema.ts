@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * Perfil único por instalación (decisión confirmada): no existe tabla de
@@ -21,7 +21,7 @@ export type MomentoComida = (typeof MOMENTO_COMIDA)[number];
  * reproducido y confirmado con una simulación antes de este comentario.
  * Por eso "eliminar" es un UPDATE a estado='eliminada': la fila sigue
  * ahí (bloqueando la regeneración) pero queda invisible en todas partes
- * (useTomasDeHoy, useHistorial, useCumplimientoPorFranja la excluyen
+ * (useProximaTomaPorMedicamento, useHistorial, useCumplimientoPorFranja la excluyen
  * explícitamente, y no es una opción seleccionable en el selector de
  * estado de EditarTomaModal).
  */
@@ -73,9 +73,10 @@ export type TipoHorario = (typeof TIPO_HORARIO)[number];
  *   final conocido, sus tomas se generan TODAS de una vez al crear el
  *   horario (ver useCrearTratamientoIntervalo), no de forma perezosa.
  *
- * `hora`/`diasSemana` solo se usan (y son NOT NULL a nivel de aplicación)
- * cuando tipo='semanal'; `frecuenciaHoras`/`fechaHoraInicio`/`duracionDias`
- * solo cuando tipo='intervalo'. SQLite no tiene un modo limpio de exigir
+ * `hora`/`diasSemana`/`fechaFin` solo se usan (hora y días son NOT NULL a
+ * nivel de aplicación) cuando tipo='semanal'; `frecuenciaHoras`/
+ * `duracionDias` solo cuando tipo='intervalo'. `fechaHoraInicio` vale para
+ * los dos (ver su comentario). SQLite no tiene un modo limpio de exigir
  * "estas columnas obligatorias solo si tipo=X" a nivel de esquema sin
  * CHECK constraints incómodos, así que la validación de qué grupo de
  * columnas es obligatorio según `tipo` vive en la capa de hooks, no aquí.
@@ -92,10 +93,31 @@ export const horariosMedicamento = sqliteTable('horarios_medicamento', {
   diasSemana: text('dias_semana'),
   /** Cada cuántas horas se repite la toma. Solo para tipo='intervalo'. */
   frecuenciaHoras: integer('frecuencia_horas'),
-  /** Fecha/hora ISO de la primera toma del tratamiento. Solo para tipo='intervalo'. */
+  /**
+   * Instante ISO desde el que la pauta está vigente.
+   * - 'intervalo': la primera toma del tratamiento.
+   * - 'semanal': el momento en que se creó la pauta. No se generan tomas
+   *   (ni avisos) de ocurrencias anteriores: sin esto, dar de alta a las
+   *   20:00 un medicamento "todos los días a las 9:00" creaba al instante
+   *   una toma de hoy ya "Atrasada". Las pautas semanales anteriores a
+   *   este cambio lo tienen a null, que significa "sin límite inicial".
+   */
   fechaHoraInicio: text('fecha_hora_inicio'),
   /** Duración total del tratamiento en días. Solo para tipo='intervalo'. */
   duracionDias: integer('duracion_dias'),
+  /**
+   * Último día (incluido) de una pauta 'semanal', como fecha LOCAL
+   * "YYYY-MM-DD" — no un instante ISO, porque "hasta el día 12" es un día
+   * del calendario del usuario, no una hora UTC. null = indefinido
+   * (medicación crónica, hasta que el usuario la archive).
+   *
+   * Decisión: un solo campo nullable en vez de un enum
+   * duración='indefinido'|'fecha_limite' más la fecha. Con el enum
+   * existirían combinaciones sin sentido (fecha_limite sin fecha,
+   * indefinido con fecha) que habría que validar en todas partes.
+   * Solo para tipo='semanal': 'intervalo' ya define su fin con duracionDias.
+   */
+  fechaFin: text('fecha_fin'),
   activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
 });
 
@@ -131,7 +153,17 @@ export const tomas = sqliteTable('tomas', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`(current_timestamp)`),
-});
+}, (tabla) => [
+  /**
+   * Una pauta no puede tener dos tomas en el mismo instante. Bug real: dos
+   * ejecuciones solapadas de useAsegurarTomasDeHoy (comprueban "¿existe?"
+   * y luego insertan, con awaits en medio) podían crear la misma toma dos
+   * veces; al omitir una, la gemela seguía pendiente y "volvía a aparecer".
+   * Las tomas manuales (horarioId null) no chocan entre sí: en un índice
+   * UNIQUE de SQLite, los NULL nunca se consideran iguales.
+   */
+  uniqueIndex('tomas_horario_fecha_unica').on(tabla.horarioId, tabla.fechaHoraProgramada),
+]);
 
 /**
  * Tabla de aprendizaje local para el escaneo de códigos de barras.

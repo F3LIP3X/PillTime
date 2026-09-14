@@ -15,6 +15,13 @@
       "when": 1789081513954,
       "tag": "0001_daffy_cargill",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789386553395,
+      "tag": "0002_curious_jack_murdock",
+      "breakpoints": true
     }
   ]
 }
