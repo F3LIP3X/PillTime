@@ -279,8 +279,14 @@ contador llega a cero; cancelar no deja nada. Detalles que importan:
 
 ## Ciclo menstrual (`app/(tabs)/ciclo.tsx`)
 
-Pestaña visible solo con `sexo === 'mujer'` (`Tabs.Protected` en
-`app/(tabs)/_layout.tsx`); se cambia en Ajustes → Perfil. Todo local.
+Pestaña visible solo con `sexo === 'mujer'`; se cambia en Ajustes →
+Perfil y debe reaccionar en caliente. **No uses `Tabs.Protected` para
+esto**: se usó al principio y en dispositivo la pestaña no aparecía ni
+desaparecía hasta reiniciar la app (en Jest con el router en JS sí
+funcionaba, así que no se llegó a ver la causa exacta). Ahora la ruta
+`ciclo` está siempre registrada y la visibilidad es `href: null` (solo
+cambia una opción, no la lista de rutas), y `ciclo.tsx` redirige a Inicio
+si se entra sin tenerla activa. Todo local.
 
 - **Se guardan reglas, no ciclos** (`periodos`: `fechaInicio`,
   `fechaFin` null = en curso; días locales "YYYY-MM-DD"). Un ciclo es de

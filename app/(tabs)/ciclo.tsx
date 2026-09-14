@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 import { BellRing, CalendarHeart, Droplet } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
@@ -25,6 +25,13 @@ function primerDiaDelMes(clave: string, desplazamiento = 0) {
 }
 
 export default function Ciclo() {
+  const sexo = usePreferenciasStore((s) => s.sexo);
+  // La ruta existe siempre (ver app/(tabs)/_layout.tsx): si no aplica, fuera.
+  if (sexo !== 'mujer') return <Redirect href="/" />;
+  return <PantallaCiclo />;
+}
+
+function PantallaCiclo() {
   const { colors } = useTheme();
   const db = useDb();
   const { periodos, analisis, hoy, recargar, registrarInicio, registrarFin, eliminarPeriodo } = useCiclo();

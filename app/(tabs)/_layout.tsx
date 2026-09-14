@@ -93,17 +93,26 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Toothbrush color={color} size={size - 2} />,
         }}
       />
-      {/* Solo si en el onboarding (o en Ajustes → Perfil) se eligió mujer. */}
-      <Tabs.Protected guard={sexo === 'mujer'}>
-        <Tabs.Screen
-          name="ciclo"
-          options={{
-            title: 'Ciclo menstrual',
-            tabBarLabel: 'Ciclo',
-            tabBarIcon: ({ color, size }) => <Droplet color={color} size={size - 2} />,
-          }}
-        />
-      </Tabs.Protected>
+      {/*
+        Solo visible si se eligió mujer (onboarding o Ajustes → Perfil).
+        La ruta está SIEMPRE registrada y lo que cambia es `href`: con null
+        el botón desaparece de la barra. Antes se usaba <Tabs.Protected>, que
+        añade/quita la ruta del navegador en caliente: se reportó en
+        dispositivo que la pestaña no aparecía ni desaparecía hasta
+        reiniciar, aunque con el router en JS (Jest) no se reproducía. Con
+        `href` no cambia la lista de rutas, solo una opción de pantalla,
+        que se refresca en cada render. Si alguien llega a /ciclo sin
+        tenerla activa, la propia pantalla redirige a Inicio.
+      */}
+      <Tabs.Screen
+        name="ciclo"
+        options={{
+          title: 'Ciclo menstrual',
+          tabBarLabel: 'Ciclo',
+          href: sexo === 'mujer' ? undefined : null,
+          tabBarIcon: ({ color, size }) => <Droplet color={color} size={size - 2} />,
+        }}
+      />
     </Tabs>
   );
 }
