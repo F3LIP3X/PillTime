@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CalendarClock, Check, Info, Moon, Palette } from 'lucide-react-native';
+import { CalendarClock, Check, Info, Moon, Palette, UserRound } from 'lucide-react-native';
 
 import { Card } from '@/components/Card';
 import { IconoCircular } from '@/components/IconoCircular';
@@ -20,6 +20,8 @@ export default function Ajustes() {
   const setTema = usePreferenciasStore((s) => s.setTema);
   const colorBase = usePreferenciasStore((s) => s.colorBase);
   const setColorBase = usePreferenciasStore((s) => s.setColorBase);
+  const sexo = usePreferenciasStore((s) => s.sexo);
+  const setSexo = usePreferenciasStore((s) => s.setSexo);
 
   return (
     <ScrollView
@@ -92,6 +94,31 @@ export default function Ajustes() {
               );
             })}
           </View>
+        </Card>
+      </View>
+
+      <View style={styles.grupo}>
+        <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>Perfil</Text>
+        <Card>
+          <View style={styles.filaTema}>
+            <IconoCircular tamano={38}>
+              <UserRound color={colors.primary} size={18} />
+            </IconoCircular>
+            <View style={styles.etiquetaTema}>
+              <Text style={[typography.body, { color: colors.text }]}>Sexo</Text>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                Decide si se muestra la pestaña del ciclo menstrual.
+              </Text>
+            </View>
+          </View>
+          <SegmentedControl
+            opciones={[
+              { valor: 'mujer', etiqueta: 'Mujer' },
+              { valor: 'hombre', etiqueta: 'Hombre' },
+            ]}
+            valor={sexo ?? 'mujer'}
+            onChange={setSexo}
+          />
         </Card>
       </View>
 

@@ -15,7 +15,7 @@ import { configurarCanalAndroid, solicitarPermisoNotificaciones } from './schedu
  * que el usuario nunca vería. En Expo Go sobre Android siempre será
  * `false` (ver CLAUDE.md): ahí no hay notificaciones que valgan.
  */
-export function useInicializarNotificaciones() {
+export function useInicializarNotificaciones(pedirPermiso: boolean) {
   const [permitidas, setPermitidas] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -23,6 +23,7 @@ export function useInicializarNotificaciones() {
 
     (async () => {
       await configurarCanalAndroid();
+      if (!pedirPermiso) return;
       const concedido = await solicitarPermisoNotificaciones();
       if (!cancelado) setPermitidas(concedido);
     })();
@@ -30,7 +31,7 @@ export function useInicializarNotificaciones() {
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [pedirPermiso]);
 
   return permitidas;
 }

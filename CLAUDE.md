@@ -234,6 +234,31 @@ inserta una fila de prueba, aplica la nueva migración, y comprueba
 Si se borra o falla la importación de un `.sql` en tiempo de build, revisa
 primero estos dos archivos antes de sospechar de Drizzle.
 
+## Onboarding (`app/onboarding/`)
+
+Cuatro pasos (bienvenida y enfoque offline, funciones, sexo, listo) que
+solo se ven hasta completarlos. El flag `onboardingCompletado` y `sexo`
+viven en `preferenciasStore` (persistido, ver `src/stores/`), así que
+borrar los datos de la app lo vuelve a mostrar. El control es con
+`Stack.Protected` en `app/_layout.tsx`: una rama para el onboarding
+(`guard={!onboardingCompletado}`) y otra para todo lo demás. El último
+paso no navega: al completar, el guard cambia y Expo Router saca al
+usuario solo. No añadas `router.replace` a mano ni redirecciones en
+`useEffect`: pelearían con los guards.
+
+El permiso de notificaciones se pide al terminar el onboarding
+(`useInicializarNotificaciones(onboardingCompletado)`), no encima de la
+bienvenida; el canal de Android se crea igualmente al arrancar.
+
+El sexo solo decide si se muestra la pestaña de ciclo menstrual; se
+cambia en Ajustes → Perfil. Beta testers que actualicen desde una versión
+anterior verán el onboarding una vez (su flag no existía): es intencionado,
+necesitan elegir el sexo igualmente.
+
+Los tipos de rutas (`.expo/types/router.d.ts`, `typedRoutes`) se
+regeneran con `expo start`, no con `expo export`: si `tsc` rechaza una
+ruta nueva que sí existe, arranca Metro un momento.
+
 ## Salud dental (`app/(tabs)/dental.tsx`)
 
 Temporizador de 2 minutos (duración recomendada por la OMS) con guía de

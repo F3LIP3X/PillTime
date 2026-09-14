@@ -5,10 +5,12 @@ import Storage from 'expo-sqlite/kv-store';
 import type { ColorBase } from '@/theme/paletas';
 
 export type PreferenciaTema = 'sistema' | 'claro' | 'oscuro';
+export type Sexo = 'mujer' | 'hombre';
 
 /**
- * Preferencias del usuario que deben sobrevivir a cerrar la app: tema y
- * color. Zustand (estado de UI) + `persist` sobre el almacén clave-valor de
+ * Preferencias del usuario que deben sobrevivir a cerrar la app: tema,
+ * color, si ya vio el onboarding y el sexo elegido en él (decide si se
+ * muestra la pestaña de ciclo menstrual). Zustand (estado de UI) + `persist` sobre el almacén clave-valor de
  * expo-sqlite (`expo-sqlite/kv-store`, un SQLite aparte de pilltime.db).
  *
  * Decisión: esto NO va en una tabla de Drizzle. Son unos pocos valores
@@ -31,8 +33,14 @@ const almacenSincrono: StateStorage = {
 type PreferenciasStore = {
   tema: PreferenciaTema;
   colorBase: ColorBase;
+  /** false hasta terminar el onboarding. Borrar los datos de la app lo devuelve a false. */
+  onboardingCompletado: boolean;
+  /** null solo antes del onboarding. */
+  sexo: Sexo | null;
   setTema: (tema: PreferenciaTema) => void;
   setColorBase: (color: ColorBase) => void;
+  setSexo: (sexo: Sexo) => void;
+  completarOnboarding: () => void;
 };
 
 export const usePreferenciasStore = create<PreferenciasStore>()(
@@ -40,8 +48,12 @@ export const usePreferenciasStore = create<PreferenciasStore>()(
     (set) => ({
       tema: 'sistema',
       colorBase: 'teal',
+      onboardingCompletado: false,
+      sexo: null,
       setTema: (tema) => set({ tema }),
       setColorBase: (colorBase) => set({ colorBase }),
+      setSexo: (sexo) => set({ sexo }),
+      completarOnboarding: () => set({ onboardingCompletado: true }),
     }),
     {
       name: 'pilltime-preferencias',

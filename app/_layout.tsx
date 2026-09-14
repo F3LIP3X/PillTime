@@ -15,6 +15,7 @@ import { spacing } from '@/theme/spacing';
 import { radii } from '@/theme/radii';
 import { HorizontalLoader } from '@/components/HorizontalLoader';
 import { useInicializarNotificaciones } from '@/features/notificaciones/useInicializarNotificaciones';
+import { usePreferenciasStore } from '@/stores/preferenciasStore';
 
 // Conexión aparte solo para aplicar migraciones antes de montar el árbol;
 // SQLiteProvider abre su propia conexión al mismo archivo para los hooks
@@ -29,10 +30,13 @@ export default function RootLayout() {
   const opacidad = useRef(new Animated.Value(0)).current;
   const traslado = useRef(new Animated.Value(12)).current;
 
-  // Canal de Android + permiso de notificaciones, una sola vez al
-  // arrancar. Sin esto no suena nada en Android 13+ aunque los
-  // recordatorios estén bien programados.
-  useInicializarNotificaciones();
+  const onboardingCompletado = usePreferenciasStore((s) => s.onboardingCompletado);
+
+  // Canal de Android + permiso de notificaciones. Sin esto no suena nada
+  // en Android 13+ aunque los recordatorios estén bien programados. El
+  // permiso se pide al terminar el onboarding (el último paso lo anuncia),
+  // no encima de la pantalla de bienvenida.
+  useInicializarNotificaciones(onboardingCompletado);
 
   useEffect(() => {
     if (error) console.error('Error aplicando migraciones de SQLite:', error);
@@ -84,6 +88,13 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: colors.background },
           }}
         >
+          {/* Onboarding solo hasta completarlo (flag persistido en
+              preferenciasStore). Al cambiar el flag, Expo Router saca al
+              usuario de la rama que deja de estar permitida. */}
+          <Stack.Protected guard={!onboardingCompletado}>
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          </Stack.Protected>
+          <Stack.Protected guard={onboardingCompletado}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="medicamento/nuevo" options={{ title: 'Nuevo medicamento' }} />
           <Stack.Screen name="medicamento/[id]/detalle" options={{ title: 'Medicamento' }} />
@@ -92,6 +103,7 @@ export default function RootLayout() {
           <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
           <Stack.Screen name="cita/index" options={{ title: 'Citas médicas' }} />
           <Stack.Screen name="cita/nueva" options={{ title: 'Nueva cita' }} />
+          </Stack.Protected>
         </Stack>
       </SQLiteProvider>
     </Animated.View>
