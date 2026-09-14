@@ -88,13 +88,16 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: colors.background },
           }}
         >
-          {/* Onboarding solo hasta completarlo (flag persistido en
-              preferenciasStore). Al cambiar el flag, Expo Router saca al
-              usuario de la rama que deja de estar permitida. */}
-          <Stack.Protected guard={!onboardingCompletado}>
-            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          </Stack.Protected>
-          <Stack.Protected guard={onboardingCompletado}>
+          {/*
+            Sin Stack.Protected a propósito. Con guards, al pulsar "Empezar a
+            usar PillTime" el flag cambiaba pero en dispositivo no se salía
+            del onboarding hasta reiniciar la app (mismo fallo que tuvo la
+            pestaña Ciclo con Tabs.Protected). Ahora todas las rutas están
+            siempre registradas y la navegación es explícita: el último paso
+            hace router.replace('/'), y (tabs)/_layout y onboarding/_layout
+            redirigen si alguien llega a la rama que no le toca.
+          */}
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="medicamento/nuevo" options={{ title: 'Nuevo medicamento' }} />
           <Stack.Screen name="medicamento/[id]/detalle" options={{ title: 'Medicamento' }} />
@@ -103,7 +106,6 @@ export default function RootLayout() {
           <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
           <Stack.Screen name="cita/index" options={{ title: 'Citas médicas' }} />
           <Stack.Screen name="cita/nueva" options={{ title: 'Nueva cita' }} />
-          </Stack.Protected>
         </Stack>
       </SQLiteProvider>
     </Animated.View>

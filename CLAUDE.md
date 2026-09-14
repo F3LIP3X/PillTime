@@ -239,12 +239,22 @@ primero estos dos archivos antes de sospechar de Drizzle.
 Cuatro pasos (bienvenida y enfoque offline, funciones, sexo, listo) que
 solo se ven hasta completarlos. El flag `onboardingCompletado` y `sexo`
 viven en `preferenciasStore` (persistido, ver `src/stores/`), así que
-borrar los datos de la app lo vuelve a mostrar. El control es con
-`Stack.Protected` en `app/_layout.tsx`: una rama para el onboarding
-(`guard={!onboardingCompletado}`) y otra para todo lo demás. El último
-paso no navega: al completar, el guard cambia y Expo Router saca al
-usuario solo. No añadas `router.replace` a mano ni redirecciones en
-`useEffect`: pelearían con los guards.
+borrar los datos de la app lo vuelve a mostrar.
+
+**Navegación explícita, sin `Stack.Protected`.** Al principio se usaron
+guards en `app/_layout.tsx` y el último paso solo cambiaba el flag,
+confiando en que Expo Router sacara al usuario. En dispositivo no pasaba:
+"Empezar a usar PillTime" no hacía nada hasta reiniciar la app (en Jest sí
+funcionaba, igual que con `Tabs.Protected` en Ciclo). **Regla del proyecto:
+no uses `Stack.Protected` ni `Tabs.Protected` con condiciones que cambian
+mientras la app está abierta.** Ahora todas las rutas están siempre
+registradas y:
+- `listo.tsx` pone el flag y luego hace `router.replace('/')`. Ese orden
+  importa: al revés, `(tabs)/_layout` vería el flag a `false` y devolvería
+  al onboarding.
+- `(tabs)/_layout` devuelve `<Redirect href="/onboarding" />` si no está
+  completado (así se entra la primera vez, porque la app arranca en `/`).
+- `onboarding/_layout` redirige a `/` si ya está completado.
 
 El permiso de notificaciones se pide al terminar el onboarding
 (`useInicializarNotificaciones(onboardingCompletado)`), no encima de la
