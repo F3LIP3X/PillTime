@@ -1,6 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { CalendarClock, Check, Info, Moon, Palette, UserRound } from 'lucide-react-native';
+import { BriefcaseBusiness, CalendarClock, Check, Code, ExternalLink, Info, Moon, Palette, UserRound } from 'lucide-react-native';
 
 import { Card } from '@/components/Card';
 import { IconoCircular } from '@/components/IconoCircular';
@@ -14,6 +15,24 @@ import { COLORES_BASE, paletaDe, type ColorBase } from '@/theme/paletas';
 import { radii } from '@/theme/radii';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
+
+/** Perfiles del desarrollador, en "Sobre PillTime" → About developer. */
+const ENLACES_DESARROLLADOR = {
+  linkedin: 'https://www.linkedin.com/in/felipe-toledano-escudero/',
+  github: 'https://github.com/F3LIP3X',
+};
+
+/**
+ * Abre la URL fuera de la app: con la app de LinkedIn/GitHub si está
+ * instalada (el sistema resuelve el enlace https) o en el navegador.
+ */
+async function abrirEnlace(url: string) {
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('No se pudo abrir el enlace', url);
+  }
+}
 
 export default function Ajustes() {
   const { colors, esOscuro } = useTheme();
@@ -162,6 +181,37 @@ export default function Ajustes() {
             conSeparador={false}
           />
         </Card>
+
+        <Text style={[typography.overline, styles.tituloGrupo, styles.subgrupo, { color: colors.textTertiary }]}>
+          About developer
+        </Text>
+        <Card sinPadding>
+          <ListRow
+            titulo="LinkedIn"
+            subtitulo="Felipe Toledano Escudero"
+            izquierda={
+              <IconoCircular>
+                <BriefcaseBusiness color={colors.primary} size={20} />
+              </IconoCircular>
+            }
+            derecha={<ExternalLink color={colors.textTertiary} size={16} />}
+            onPress={() => abrirEnlace(ENLACES_DESARROLLADOR.linkedin)}
+            sinChevron
+          />
+          <ListRow
+            titulo="GitHub"
+            subtitulo="@F3LIP3X"
+            izquierda={
+              <IconoCircular>
+                <Code color={colors.primary} size={20} />
+              </IconoCircular>
+            }
+            derecha={<ExternalLink color={colors.textTertiary} size={16} />}
+            onPress={() => abrirEnlace(ENLACES_DESARROLLADOR.github)}
+            sinChevron
+            conSeparador={false}
+          />
+        </Card>
       </View>
     </ScrollView>
   );
@@ -176,6 +226,7 @@ const styles = StyleSheet.create({
   },
   grupo: { gap: spacing.sm },
   tituloGrupo: { marginLeft: spacing.xs },
+  subgrupo: { marginTop: spacing.sm },
   filaTema: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
   etiquetaTema: { flex: 1 },
   muestras: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md },
