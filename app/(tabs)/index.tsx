@@ -19,6 +19,8 @@ import { useAsegurarTomasDeHoy } from '@/features/tomas/hooks/useAsegurarTomasDe
 import { useMarcarToma } from '@/features/tomas/hooks/useMarcarToma';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
 import { EditarTomaModal } from '@/features/tomas/components/EditarTomaModal';
+import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
+import { useDb } from '@/db/client';
 
 const UMBRAL_STOCK_BAJO = 5;
 
@@ -65,6 +67,7 @@ export default function Inicio() {
   // que el hueco de la barra de estado hay que reservarlo a mano: si no,
   // el reloj y la batería del sistema caen encima del texto.
   const insets = useSafeAreaInsets();
+  const db = useDb();
   const asegurarTomasDeHoy = useAsegurarTomasDeHoy();
   const { proximas, recargar: recargarProximas } = useProximaTomaPorMedicamento();
   const { medicamentos, recargar: recargarMedicamentos } = useMedicamentos();
@@ -75,9 +78,13 @@ export default function Inicio() {
 
   useFocusEffect(
     useCallback(() => {
-      asegurarTomasDeHoy().then(recargarProximas);
+      asegurarTomasDeHoy().then(() => {
+        recargarProximas();
+        // Abrir la app renueva la ventana de avisos programados (ver scheduler.ts).
+        void sincronizarNotificaciones(db);
+      });
       recargarMedicamentos();
-    }, [asegurarTomasDeHoy, recargarProximas, recargarMedicamentos]),
+    }, [asegurarTomasDeHoy, recargarProximas, recargarMedicamentos, db]),
   );
 
   const handleMarcar = async (toma: ProximaToma, tomado: boolean) => {

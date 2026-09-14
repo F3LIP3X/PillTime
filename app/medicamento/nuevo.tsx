@@ -19,12 +19,30 @@ import { spacing, MIN_TOUCH_TARGET } from '@/theme/spacing';
 import { radii } from '@/theme/radii';
 import { typography } from '@/theme/typography';
 import { MOMENTO_COMIDA, type MomentoComida } from '@/db/schema';
+import { claveDia } from '@/features/tomas/ocurrencias';
 
 const ETIQUETA_MOMENTO: Record<MomentoComida, string> = {
   antes: 'Antes',
   despues: 'Después',
   ninguno: 'Indiferente',
 };
+
+/**
+ * Hora por defecto: la próxima en punto. Con "ahora mismo" (el valor
+ * anterior) la primera toma caía unos segundos antes de crear la pauta y
+ * no se generaba hasta el día siguiente, sin que se entendiera por qué.
+ */
+function proximaHoraEnPunto() {
+  const fecha = new Date();
+  fecha.setHours(fecha.getHours() + 1, 0, 0, 0);
+  return fecha;
+}
+
+function enDias(dias: number) {
+  const fecha = new Date();
+  fecha.setDate(fecha.getDate() + dias);
+  return fecha;
+}
 
 const DIAS_SEMANA = [
   { iso: 1, etiqueta: 'L' },
@@ -54,9 +72,12 @@ export default function NuevoMedicamento() {
   const [notas, setNotas] = useState('');
   const [codigoBarras, setCodigoBarras] = useState('');
 
-  // Modo 'cronico' (horario 'semanal'): hora fija + días de la semana, indefinido.
-  const [hora, setHora] = useState(new Date());
+  // Modo 'cronico' (horario 'semanal'): hora fija + días de la semana,
+  // indefinido o hasta una fecha límite.
+  const [hora, setHora] = useState(proximaHoraEnPunto);
   const [diasSeleccionados, setDiasSeleccionados] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
+  const [duracion, setDuracion] = useState<'indefinido' | 'hasta'>('indefinido');
+  const [fechaFin, setFechaFin] = useState(() => enDias(30));
 
   // Modo 'tratamiento' (horario 'intervalo'): frecuencia + duración, con fin.
   const [fechaInicio, setFechaInicio] = useState(new Date());
@@ -86,10 +107,14 @@ export default function NuevoMedicamento() {
       ? Math.floor((Number(duracionDias) * 24) / Number(frecuenciaHoras))
       : 0;
 
+  const fechaFinPasada = duracion === 'hasta' && claveDia(fechaFin) < claveDia(new Date());
+
   const puedeGuardar =
     nombre.trim().length > 0 &&
     dosis.trim().length > 0 &&
-    (modo === 'cronico' ? diasSeleccionados.length > 0 : Number(frecuenciaHoras) > 0 && Number(duracionDias) > 0);
+    (modo === 'cronico'
+      ? diasSeleccionados.length > 0 && !fechaFinPasada
+      : Number(frecuenciaHoras) > 0 && Number(duracionDias) > 0);
 
   const handleGuardar = async () => {
     if (!puedeGuardar) return;
@@ -108,13 +133,19 @@ export default function NuevoMedicamento() {
 
       if (modo === 'cronico') {
         const horaTexto = `${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}`;
-        await crearHorario({ medicamentoId: medicamento.id, hora: horaTexto, diasSemana: diasSeleccionados });
+        await crearHorario({
+          medicamentoId: medicamento.id,
+          hora: horaTexto,
+          diasSemana: diasSeleccionados,
+          fechaFin: duracion === 'hasta' ? claveDia(fechaFin) : null,
+        });
       } else {
+        // Sin segundos: si no, la primera toma queda "Atrasada" al instante.
+        const inicio = new Date(fechaInicio);
+        inicio.setSeconds(0, 0);
         await crearTratamientoIntervalo({
           medicamentoId: medicamento.id,
-          nombreMedicamento: medicamento.nombre,
-          momentoComida: medicamento.momentoComida,
-          fechaHoraInicio: fechaInicio,
+          fechaHoraInicio: inicio,
           frecuenciaHoras: Number(frecuenciaHoras),
           duracionDias: Number(duracionDias),
         });
@@ -209,6 +240,30 @@ export default function NuevoMedicamento() {
                       );
                     })}
                   </View>
+                </View>
+
+                <View style={styles.bloque}>
+                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Duración</Text>
+                  <SegmentedControl
+                    opciones={[
+                      { valor: 'indefinido', etiqueta: 'Indefinido' },
+                      { valor: 'hasta', etiqueta: 'Hasta una fecha' },
+                    ]}
+                    valor={duracion}
+                    onChange={setDuracion}
+                  />
+                </View>
+                {duracion === 'hasta' ? (
+                  <DateTimeField label="Último día" mode="date" value={fechaFin} onChange={setFechaFin} />
+                ) : null}
+                <View style={[styles.resumen, { backgroundColor: fechaFinPasada ? colors.errorSoft : colors.primarySoft }]}>
+                  <Text style={[typography.bodySmall, { color: fechaFinPasada ? colors.error : colors.primary }]}>
+                    {fechaFinPasada
+                      ? 'El último día no puede ser anterior a hoy.'
+                      : duracion === 'indefinido'
+                        ? 'Se repite hasta que lo archives.'
+                        : `Se repite hasta el ${fechaFin.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}, incluido.`}
+                  </Text>
                 </View>
               </>
             ) : (

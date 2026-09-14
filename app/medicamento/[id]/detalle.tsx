@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Archive, CalendarDays, Clock, FileText, Package, Pencil, Pill, Utensils } from 'lucide-react-native';
+import { Archive, CalendarDays, Clock, FileText, Package, Pencil, Pill, Trash2, Utensils } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { IconoCircular } from '@/components/IconoCircular';
+import { Pressable3D } from '@/components/Pressable3D';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
 import { radii } from '@/theme/radii';
@@ -13,6 +14,8 @@ import { typography } from '@/theme/typography';
 import { useMedicamento } from '@/features/medicamentos/hooks/useMedicamento';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
 import { useArchivarMedicamento } from '@/features/medicamentos/hooks/useActualizarMedicamento';
+import { useEliminarTomaPrevista, useProximasTomas } from '@/features/tomas/hooks/useProximasTomas';
+import { claveDia, type Ocurrencia } from '@/features/tomas/ocurrencias';
 
 const ETIQUETA_MOMENTO: Record<string, string> = {
   antes: 'Antes de comer',
@@ -24,6 +27,22 @@ const ETIQUETA_DIA: Record<number, string> = { 1: 'L', 2: 'M', 3: 'X', 4: 'J', 5
 
 const UMBRAL_STOCK_BAJO = 5;
 
+/** "YYYY-MM-DD" local → "12 de octubre". Se construye en local, no con `new Date(texto)`, que lo leería como UTC. */
+function fechaLarga(clave: string) {
+  const [a, m, d] = clave.split('-').map(Number);
+  return new Date(a, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+}
+
+function etiquetaDiaToma(fechaIso: string) {
+  const fecha = new Date(fechaIso);
+  const hoy = new Date();
+  const manana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+  if (claveDia(fecha) === claveDia(hoy)) return 'Hoy';
+  if (claveDia(fecha) === claveDia(manana)) return 'Mañana';
+  const texto = fecha.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 export default function DetalleMedicamento() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const medicamentoId = Number(id);
@@ -32,6 +51,8 @@ export default function DetalleMedicamento() {
   const { medicamento, horarios, recargar: recargarMedicamento } = useMedicamento(medicamentoId);
   const { medicamentos: conStock, recargar: recargarStock } = useMedicamentos({ soloActivos: false });
   const archivar = useArchivarMedicamento();
+  const { tomasPrevistas, recargar: recargarPrevistas } = useProximasTomas(medicamentoId);
+  const eliminarTomaPrevista = useEliminarTomaPrevista();
 
   const stock = conStock.find((m) => m.id === medicamentoId);
 
@@ -42,13 +63,31 @@ export default function DetalleMedicamento() {
     useCallback(() => {
       recargarMedicamento();
       recargarStock();
-    }, [recargarMedicamento, recargarStock]),
+      recargarPrevistas();
+    }, [recargarMedicamento, recargarStock, recargarPrevistas]),
   );
 
   if (!medicamento) return null;
 
   const unidadesRestantes = stock ? stock.stockRestante : medicamento.stockInicial;
   const stockBajo = unidadesRestantes <= UMBRAL_STOCK_BAJO;
+
+  const handleQuitarToma = (toma: Ocurrencia) => {
+    const cuando = `${etiquetaDiaToma(toma.fechaHoraProgramada).toLowerCase()} a las ${new Date(
+      toma.fechaHoraProgramada,
+    ).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    Alert.alert('Quitar esta toma', `Se quitará solo la toma de ${cuando}. El resto de la pauta no cambia.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Quitar',
+        style: 'destructive',
+        onPress: async () => {
+          await eliminarTomaPrevista(toma);
+          await recargarPrevistas();
+        },
+      },
+    ]);
+  };
 
   const handleArchivar = async () => {
     await archivar(medicamentoId);
@@ -133,6 +172,13 @@ export default function DetalleMedicamento() {
                         );
                       })}
                     </View>
+                    <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                      {horario.fechaFin
+                        ? claveDia(new Date()) > horario.fechaFin
+                          ? `Terminó el ${fechaLarga(horario.fechaFin)}`
+                          : `Hasta el ${fechaLarga(horario.fechaFin)}, incluido`
+                        : 'Indefinido'}
+                    </Text>
                   </View>
                 </>
               ) : (
@@ -162,6 +208,52 @@ export default function DetalleMedicamento() {
           </View>
         </Card>
       </View>
+
+      {medicamento.activo && (
+        <View style={styles.grupo}>
+          <Text style={[typography.overline, styles.tituloGrupo, { color: colors.textTertiary }]}>
+            Próximas tomas · 7 días
+          </Text>
+          <Card sinPadding>
+            {tomasPrevistas.length === 0 ? (
+              <Text style={[typography.bodySmall, styles.sinTomas, { color: colors.textSecondary }]}>
+                No hay tomas previstas en los próximos 7 días.
+              </Text>
+            ) : (
+              tomasPrevistas.map((toma, index) => (
+                <View
+                  key={`${toma.horarioId}-${toma.fechaHoraProgramada}`}
+                  style={[
+                    styles.filaToma,
+                    index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
+                  ]}
+                >
+                  <View style={styles.horarioTextos}>
+                    <Text style={[typography.body, { color: colors.text }]}>
+                      {new Date(toma.fechaHoraProgramada).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                    <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                      {etiquetaDiaToma(toma.fechaHoraProgramada)}
+                    </Text>
+                  </View>
+                  <Pressable3D
+                    onPress={() => handleQuitarToma(toma)}
+                    escala={0.9}
+                    accessibilityRole="button"
+                    accessibilityLabel="Quitar esta toma"
+                    style={styles.botonQuitar}
+                  >
+                    <Trash2 color={colors.error} size={18} />
+                  </Pressable3D>
+                </View>
+              ))
+            )}
+          </Card>
+        </View>
+      )}
 
       {!!medicamento.notas && (
         <View style={styles.grupo}>
@@ -213,6 +305,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  filaToma: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  sinTomas: { padding: spacing.md },
+  botonQuitar: { padding: spacing.sm },
   separador: { height: StyleSheet.hairlineWidth, marginVertical: spacing.xs },
   notas: { flex: 1 },
   acciones: { gap: spacing.sm },
