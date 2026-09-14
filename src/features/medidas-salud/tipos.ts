@@ -55,6 +55,17 @@ export function formatearNumero(valor: number, decimales = 0): string {
   return valor.toLocaleString('es-ES', { maximumFractionDigits: decimales });
 }
 
+/**
+ * ¿Falta algún campo obligatorio? Solo esto deshabilita "Registrar"; un
+ * valor fuera de rango deja el botón activo y se explica al pulsarlo (si
+ * no, el usuario no sabría por qué no puede guardar).
+ */
+export function faltanObligatorios(tipo: TipoMedidaSalud, textos: string[], notas: string): boolean {
+  const info = INFO_MEDIDA[tipo];
+  if (info.campos.length === 0) return !notas.trim();
+  return info.campos.some((campo, i) => !campo.opcional && !(textos[i] ?? '').trim());
+}
+
 /** Valida los textos del formulario. Devuelve el mensaje de error o null. */
 export function validarValores(tipo: TipoMedidaSalud, textos: string[], notas: string): string | null {
   const info = INFO_MEDIDA[tipo];

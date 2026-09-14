@@ -30,8 +30,16 @@ export const lightColors = {
   background: '#F3F7F7',
   /** Tarjetas y filas de lista. */
   surface: '#FFFFFF',
-  /** Relleno sutil: inputs, segmented control, estados vacíos. */
+  /** Relleno sutil: segmented control, chips, estados vacíos. NO para campos editables (ver `campo`). */
   fill: '#EAF0F1',
+  /**
+   * Fondo y borde de los campos editables. Antes los campos usaban `fill`
+   * sin borde: sobre una tarjeta blanca daba 1,15:1 y parecían
+   * deshabilitados (feedback de beta testers). El borde cumple ≥ 3:1
+   * contra la superficie, el mínimo de WCAG para el contorno de un control.
+   */
+  campo: '#FFFFFF',
+  bordeCampo: '#7F8C91',
 
   text: '#14201F',
   textSecondary: '#5C6670',
@@ -83,6 +91,9 @@ export const darkColors: Colors = {
   background: '#121212',
   surface: '#1B2222',
   fill: '#232B2B',
+  // Hundido respecto a la tarjeta: el fondo de pantalla. Borde 3,5:1 con la superficie.
+  campo: '#121212',
+  bordeCampo: '#6A777C',
 
   text: '#F2F2F2',
   textSecondary: '#A3ADB5',

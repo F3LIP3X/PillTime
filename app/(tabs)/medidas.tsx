@@ -8,14 +8,14 @@ import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { Pressable3D } from '@/components/Pressable3D';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Selector } from '@/components/Selector';
-import { TIPO_MEDIDA_SALUD, type TipoMedidaSalud } from '@/db/schema';
+import type { TipoMedidaSalud } from '@/db/schema';
 import { CamposMedida, type ValoresFormularioMedida } from '@/features/medidas-salud/components/CamposMedida';
 import { aDatosMedida } from '@/features/medidas-salud/components/datosMedida';
 import { EditarMedidaModal } from '@/features/medidas-salud/components/EditarMedidaModal';
 import { PanelGraficas } from '@/features/medidas-salud/components/PanelGraficas';
+import { SelectorTipoMedida } from '@/features/medidas-salud/components/SelectorTipoMedida';
 import { useMedidasSalud } from '@/features/medidas-salud/hooks/useMedidasSalud';
-import { INFO_MEDIDA, textoMedida, validarValores, type Medida } from '@/features/medidas-salud/tipos';
+import { faltanObligatorios, INFO_MEDIDA, textoMedida, validarValores, type Medida } from '@/features/medidas-salud/tipos';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -59,7 +59,7 @@ function Registros() {
 
   const info = INFO_MEDIDA[tipo];
   const error = validarValores(tipo, valores.textos, valores.notas);
-  const vacio = valores.textos.every((t) => !t?.trim()) && !valores.notas.trim();
+  const incompleto = faltanObligatorios(tipo, valores.textos, valores.notas);
 
   const handleRegistrar = async () => {
     setIntentado(true);
@@ -81,9 +81,7 @@ function Registros() {
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <View style={styles.cabecera}>
-            <Selector
-              label="Tipo de medida"
-              opciones={TIPO_MEDIDA_SALUD.map((t) => ({ valor: t, etiqueta: INFO_MEDIDA[t].etiqueta }))}
+            <SelectorTipoMedida
               valor={tipo}
               onChange={(t) => {
                 setTipo(t);
@@ -94,13 +92,15 @@ function Registros() {
 
             <Card>
               <View style={styles.formulario}>
-                <Text style={[typography.overline, { color: colors.textTertiary }]}>Nuevo registro</Text>
+                <Text style={[typography.overline, { color: colors.textTertiary }]}>
+                  Nuevo registro · {INFO_MEDIDA[tipo].etiqueta}
+                </Text>
                 <CamposMedida tipo={tipo} valor={valores} onChange={setValores} />
                 {intentado && !!error && <Text style={[typography.caption, { color: colors.error }]}>{error}</Text>}
                 <Button
                   label="Registrar"
                   icono={<Plus color={colors.onPrimary} size={18} />}
-                  disabled={vacio}
+                  disabled={incompleto}
                   onPress={handleRegistrar}
                 />
               </View>

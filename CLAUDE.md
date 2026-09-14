@@ -603,8 +603,23 @@ superficie en `colors.ts`). Reglas que conviene no romper por descuido:
   reportado: "kg" suelto bajo el campo de peso parecía otra etiqueta.
 - **Nada de controles con scroll horizontal.** Los beta testers no veían
   las opciones de la derecha. `SegmentedControl` es para 2-4 opciones que
-  caben; si no caben, `Selector` (campo que abre una hoja con la lista).
-  La prop `desplazable` de SegmentedControl queda solo por compatibilidad.
+  caben. Para elegir entre varias opciones que se cambian a menudo, todas
+  a la vista (fichas o chips que saltan de línea, como
+  `SelectorTipoMedida` o `Chips`); `Selector` (desplegable en hoja) solo
+  para listas secundarias que se tocan poco, como la unidad de la dosis:
+  en Medidas se rechazó por esconder los tipos tras un menú. La prop
+  `desplazable` de SegmentedControl queda solo por compatibilidad.
+- **Los campos editables usan `colors.campo` + borde `colors.bordeCampo`,
+  nunca `fill`.** Con `fill` sin borde, un campo sobre tarjeta blanca daba
+  1,15:1 y parecía deshabilitado (reportado en Medidas, pero afectaba a
+  todos los formularios). El borde cumple ≥ 3:1 con la superficie en los
+  6 colores y ambos temas; `TextField`, `DateTimeField` y `Selector` lo
+  aplican. `fill` queda para chips, segmentados y fondos de énfasis.
+- **Botón deshabilitado = gris neutro** (`fill` + `textSecondary`, iconos
+  repintados), no la variante con opacidad: un primario translúcido se
+  leía como "teal apagado", no como deshabilitado. Deshabilita solo
+  cuando falten datos obligatorios; los valores inválidos se explican al
+  pulsar (`faltanObligatorios` frente a `validarValores` en Medidas).
 - **Estado nunca solo por color** (requisito de accesibilidad del plan):
   los badges de estado llevan color + texto, y en Historial además
   icono.

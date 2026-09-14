@@ -26,12 +26,15 @@ export function TextField({ label, ayuda, sufijo, error = false, style, onFocus,
   const { colors } = useTheme();
   const [enfocado, setEnfocado] = useState(false);
 
-  const colorBorde = error ? colors.error : enfocado ? colors.primary : 'transparent';
+  // Borde siempre visible: sin él el campo se confunde con la tarjeta y
+  // parece deshabilitado. Mismo grosor en todos los estados para que
+  // enfocar no desplace nada; solo cambia el color.
+  const colorBorde = error ? colors.error : enfocado ? colors.primary : colors.bordeCampo;
 
   return (
     <View style={styles.container}>
       <Text style={[typography.caption, { color: colors.textSecondary }]}>{label}</Text>
-      <View style={[styles.caja, { backgroundColor: colors.fill, borderColor: colorBorde }]}>
+      <View style={[styles.caja, { backgroundColor: colors.campo, borderColor: colorBorde }]}>
         <TextInput
           placeholderTextColor={colors.textTertiary}
           selectionColor={colors.primary}

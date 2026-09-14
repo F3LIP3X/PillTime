@@ -37,7 +37,10 @@ export function Selector<T extends string>({ label, opciones, valor, onChange, t
         onPress={() => setAbierto(true)}
         accessibilityRole="button"
         accessibilityLabel={`${label ?? titulo ?? 'Seleccionar'}: ${actual?.etiqueta ?? ''}`}
-        style={({ pressed }) => [styles.campo, { backgroundColor: colors.fill, opacity: pressed ? 0.7 : 1 }]}
+        style={({ pressed }) => [
+          styles.campo,
+          { backgroundColor: colors.campo, borderColor: colors.bordeCampo, opacity: pressed ? 0.7 : 1 },
+        ]}
       >
         <Text style={[typography.body, styles.valor, { color: colors.text }]} numberOfLines={1}>
           {actual?.etiqueta}
@@ -89,6 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: ALTO_CONTROL,
     borderRadius: radii.md,
+    borderWidth: 1.5,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },

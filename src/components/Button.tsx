@@ -1,3 +1,4 @@
+import { cloneElement, isValidElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Pressable3D } from './Pressable3D';
@@ -40,7 +41,15 @@ export function Button({
     danger: { fondo: colors.errorSoft, texto: colors.error },
   };
 
-  const { fondo, texto } = estilos[variant];
+  /**
+   * Deshabilitado = gris neutro, no el color de la variante con opacidad.
+   * Un primario translúcido parecía "un teal apagado" y no se distinguía
+   * de un botón activo con poco contraste (feedback de beta testers).
+   */
+  const { fondo, texto } = disabled ? { fondo: colors.fill, texto: colors.textSecondary } : estilos[variant];
+  // Los iconos llegan ya coloreados para el estado activo (p. ej. onPrimary,
+  // blanco sobre gris): al deshabilitar se repintan con el color del texto.
+  const iconoFinal = disabled && isValidElement<{ color?: string }>(icono) ? cloneElement(icono, { color: texto }) : icono;
 
   return (
     <Pressable3D
@@ -53,14 +62,13 @@ export function Button({
         styles.boton,
         {
           backgroundColor: fondo,
-          opacity: disabled ? 0.45 : 1,
           alignSelf: ancho === 'completo' ? 'stretch' : 'flex-start',
           paddingHorizontal: ancho === 'completo' ? spacing.lg : spacing.md,
         },
       ]}
     >
       <View style={styles.contenido}>
-        {icono}
+        {iconoFinal}
         <Text style={[typography.bodyStrong, { color: texto }]} numberOfLines={1}>
           {label}
         </Text>

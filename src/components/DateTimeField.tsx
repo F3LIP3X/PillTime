@@ -38,7 +38,7 @@ export function DateTimeField(props: Props) {
   return (
     <View style={styles.container}>
       <Text style={[typography.caption, { color: colors.textSecondary }]}>{label}</Text>
-      <View style={[styles.caja, { backgroundColor: colors.fill }]}>
+      <View style={[styles.caja, { backgroundColor: colors.campo, borderColor: colors.bordeCampo }]}>
         <Pressable
           onPress={() => setMostrar(true)}
           accessibilityRole="button"
@@ -77,7 +77,7 @@ export function DateTimeField(props: Props) {
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  caja: { flexDirection: 'row', alignItems: 'center', borderRadius: radii.md, minHeight: ALTO_CONTROL },
+  caja: { flexDirection: 'row', alignItems: 'center', borderRadius: radii.md, borderWidth: 1.5, minHeight: ALTO_CONTROL },
   boton: { flex: 1, alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: spacing.md },
   limpiar: { paddingHorizontal: spacing.md, alignSelf: 'stretch', justifyContent: 'center' },
 });
