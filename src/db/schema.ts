@@ -21,7 +21,7 @@ export type MomentoComida = (typeof MOMENTO_COMIDA)[number];
  * reproducido y confirmado con una simulación antes de este comentario.
  * Por eso "eliminar" es un UPDATE a estado='eliminada': la fila sigue
  * ahí (bloqueando la regeneración) pero queda invisible en todas partes
- * (useProximaTomaPorMedicamento, useHistorial, useCumplimientoPorFranja la excluyen
+ * (useTomasDeHoy, useHistorial, useCumplimientoPorFranja la excluyen
  * explícitamente, y no es una opción seleccionable en el selector de
  * estado de EditarTomaModal).
  */

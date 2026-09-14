@@ -149,20 +149,26 @@ tomas pasadas conserven su franja horaria. El tipo de una pauta no se
 cambia al editar: se quita y se añade otra. Un medicamento puede tener
 varias pautas (p. ej. 09:00 y 21:00, o una semanal y un tratamiento).
 
-**Inicio muestra una tarjeta por medicamento (su próxima toma pendiente),
-no una lista de todas las tomas de hoy.** Decisión explícita del usuario
-tras probar la primera versión (que sí listaba todas las tomas de hoy) y
-resultarle confusa — con un tratamiento "cada 8 horas" se veían 3
-tarjetas del mismo medicamento el mismo día. `useProximaTomaPorMedicamento`
-trae, por cada medicamento activo, su toma `'pendiente'` más antigua sin
-resolver (puede ser de hoy, atrasada de un día anterior, o incluso de
-mañana si un tratamiento por intervalo aún no tiene ninguna pendiente
-antes) — no se limita a "hoy". Al marcar Tomado/Omitido, esa toma deja de
-ser `'pendiente'` y la recarga trae automáticamente la siguiente del
-mismo medicamento (si la hay), dando la sensación de "avanzar" tarjeta a
-tarjeta. Si se te ocurre volver a listar "todas las tomas de hoy" en
-Inicio, es un cambio de producto consciente, no una vuelta atrás sin
-más — coméntalo primero.
+**Inicio es la agenda de hoy: todas las tomas del día por hora, también
+las ya resueltas.** Decisión del usuario del 14-09-2026 tras el feedback
+de beta testers, que sustituye a la anterior ("una tarjeta por
+medicamento con su próxima toma pendiente", que a su vez había
+sustituido a una primera lista de tomas de hoy). Motivo del cambio: al
+marcar, la toma desaparecía y hacía dudar de si se había guardado, y se
+colaban tomas de mañana o de días anteriores. Lo que hace ahora
+(`useTomasDeHoy`):
+- Solo hoy. Las tomadas se quedan con check verde, las omitidas con X y
+  el nombre tachado; las pendientes llevan botones de Tomado/Omitir.
+- Agrupadas por hora (varias a las 9:00 = un solo bloque), con el
+  progreso "3 / 5" arriba.
+- Las pendientes de días anteriores no se mezclan: un aviso con el
+  número lleva a Historial.
+- Si hoy no queda nada, se indica cuál es la siguiente toma prevista.
+
+El problema que motivó la versión anterior (con "cada 8 horas" salían 3
+tarjetas del mismo medicamento) se asume: ahora son 3 filas compactas en
+3 horas distintas, que es lo que realmente toca ese día. Si se vuelve a
+cambiar el modelo de Inicio, es un cambio de producto: coméntalo primero.
 
 **Cada pantalla que lee datos mutables desde otra pantalla necesita
 `useFocusEffect` llamando a su propio `recargar()`.** Expo Router (como
@@ -327,7 +333,7 @@ Efecto en cada sitio que lee `tomas`, para que una "limpieza" no la
 vuelva a hacer visible sin querer:
 - `calcularOcurrencias`: una tumba anula la ocurrencia de su pauta ese
   día, así que no se regenera ni avisa.
-- `useProximaTomaPorMedicamento` y `useHistorial`: excluyen `estado != 'eliminada'`
+- `useTomasDeHoy` y `useHistorial`: excluyen `estado != 'eliminada'`
   explícitamente — si no, la fila tumba aparecería en las listas.
 - `useCumplimientoPorFranja`: también la excluye, de ambos lados
   (numerador y denominador) — no cuenta como "programada" ni como
