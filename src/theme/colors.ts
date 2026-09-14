@@ -38,6 +38,19 @@ export const lightColors = {
   successSoft: '#E2F4EE',
   warning: '#B9761B',
   warningSoft: '#FBF0E1',
+
+  /**
+   * Series de gráficas. No son el primario: el teal de marca en claro se
+   * queda justo bajo el mínimo de croma para series (se lee grisáceo), así
+   * que se usa un paso más saturado de la misma familia. Validado con el
+   * validador de paleta (luminosidad, croma, daltonismo, contraste) contra
+   * `surface` en claro y en oscuro.
+   */
+  serie1: '#008A9C',
+  serie2: '#EB6834',
+  /** Rejilla y eje de gráficas: un paso sobre la superficie, recesivos. */
+  rejilla: '#E4EBEC',
+  eje: '#C5D0D2',
 } as const;
 
 export const darkColors = {
@@ -62,6 +75,11 @@ export const darkColors = {
   successSoft: '#102E27',
   warning: '#E2A44A',
   warningSoft: '#2C2314',
+
+  serie1: '#02A6B8',
+  serie2: '#D95926',
+  rejilla: '#263030',
+  eje: '#3A4545',
 } as const;
 
 export type Colors = typeof lightColors;

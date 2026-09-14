@@ -58,7 +58,7 @@ por feature:
   `expo-sqlite`).
 - `src/features/<feature>/{hooks,components}` — un hook por operación de
   lectura/escritura sobre Drizzle (`useMedicamentos`,
-  `useProximaTomaPorMedicamento`, etc.), sin capa de servicio intermedia.
+  `useTomasDeHoy`, etc.), sin capa de servicio intermedia.
 - `src/theme/` — paleta "Teal Trust", tipografía y espaciado
   (`docs/plan-tecnico-diseno.md`), con `useTheme()` para claro/oscuro.
 - `src/stores/` — Zustand, **solo estado de UI** (p. ej. preferencia de
@@ -244,6 +244,16 @@ opcional; aviso a 30 días (`estadoCaducidad`).
 
 Alta y edición comparten `CamposMedicamento` y `EditorPauta`: editar
 debe permitir cambiar lo mismo que se escribió al crear.
+
+**Medidas de salud** (`medidas_salud`, metadatos en
+`src/features/medidas-salud/tipos.ts`): columnas genéricas
+`valor1`/`valor2`/`valor3` + `notas`. Tensión = sistólica/diastólica/
+pulso (el pulso es opcional y va en el mismo registro porque los
+tensiómetros dan las tres cifras a la vez). `saturacion` = SpO₂ en %.
+`sintoma` es texto libre en `notas` (antes era un número en `valor1`; esos
+registros antiguos se siguen mostrando y al editarlos se ofrecen como
+texto). Los min/max de `INFO_MEDIDA` solo filtran errores de tecleo, no
+son rangos clínicos.
 
 **Stock restante** no se guarda: se calcula en consulta como
 `stockInicial − SUM(unidadesPorToma)` de las tomas en estado `tomado`
@@ -450,6 +460,30 @@ del sistema. Regla: la altura de la barra de pestañas es
 cualquier barra inferior de acción usa el componente `PieAccion`, que
 suma el inset inferior **salvo** cuando la pantalla está dentro de las
 pestañas (`dentroDeTabs`), porque ahí ese hueco ya lo ocupa la barra.
+
+## Gráficas de Medidas
+
+Medidas tiene dos secciones, Registros y Gráficas (`PanelGraficas`).
+Decisión del usuario sobre la "gráfica global": primero una vista que
+interpreta todos los datos y, al bajar, una gráfica por dato. La vista
+global **no** es una gráfica con todas las series: peso, tensión y
+glucosa no comparten unidad, y un doble eje o normalizarlas engaña. Es
+una fila por dato con último valor, tendencia (media del primer tercio
+del periodo frente al último), minigráfica con escala propia y una
+lectura orientativa (`interpretacion.ts`: tensión según la ESH, SpO₂,
+pulso; glucosa sin clasificar salvo extremos porque no se sabe si era en
+ayunas). Lleva un aviso de que no es diagnóstico. No añadas consejos
+médicos ni cambies umbrales sin fuente clínica.
+
+Gráficas dibujadas a mano con `react-native-svg` (ya era dependencia),
+sin librería de gráficas. Reglas que siguen: un solo eje Y por gráfica
+(el pulso tiene su propia gráfica, no un segundo eje en la de tensión),
+líneas de 2 px, puntos con anillo del color de superficie, rejilla
+recesiva, texto nunca del color de la serie, leyenda solo con 2+ series,
+y tocar/arrastrar muestra los valores del registro más cercano. Colores
+de serie en `colors.serie1`/`serie2`, que no son el primario: el teal de
+marca en claro no llega al mínimo de croma para series; los pares se
+validaron (daltonismo, contraste) contra `surface` en ambos temas.
 
 ## Permisos y canal de notificaciones
 

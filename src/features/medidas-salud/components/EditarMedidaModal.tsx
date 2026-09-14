@@ -1,54 +1,51 @@
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { DateTimeField } from '@/components/DateTimeField';
 import { HojaModal } from '@/components/HojaModal';
-import { TextField } from '@/components/TextField';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
-
-type MedidaEditable = {
-  id: number;
-  valor1: number | null;
-  valor2: number | null;
-  fechaHora: string;
-};
+import { typography } from '@/theme/typography';
+import type { DatosMedida } from '../hooks/useMedidasSalud';
+import { INFO_MEDIDA, validarValores, type Medida } from '../tipos';
+import { CamposMedida, type ValoresFormularioMedida } from './CamposMedida';
+import { aDatosMedida } from './datosMedida';
 
 type Props = {
-  medida: MedidaEditable | null;
-  esTension: boolean;
+  medida: Medida | null;
   onClose: () => void;
-  onGuardar: (id: number, datos: { valor1?: number; valor2?: number; fechaHora: string }) => Promise<void>;
+  onGuardar: (id: number, datos: DatosMedida) => Promise<void>;
   onEliminar: (id: number) => Promise<void>;
 };
 
-export function EditarMedidaModal({ medida, esTension, onClose, onGuardar, onEliminar }: Props) {
+export function EditarMedidaModal({ medida, onClose, onGuardar, onEliminar }: Props) {
   const { colors } = useTheme();
-
   const [fecha, setFecha] = useState(new Date());
-  const [valor1, setValor1] = useState('');
-  const [valor2, setValor2] = useState('');
+  const [valores, setValores] = useState<ValoresFormularioMedida>({ textos: [], notas: '' });
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     if (!medida) return;
     setFecha(new Date(medida.fechaHora));
-    setValor1(medida.valor1 != null ? String(medida.valor1) : '');
-    setValor2(medida.valor2 != null ? String(medida.valor2) : '');
+    const texto = (v: number | null) => (v === null ? '' : String(v).replace('.', ','));
+    setValores({
+      textos: [texto(medida.valor1), texto(medida.valor2), texto(medida.valor3)],
+      // Un síntoma antiguo guardaba un número: se ofrece como texto para describirlo.
+      notas: medida.notas ?? (medida.tipo === 'sintoma' && medida.valor1 !== null ? String(medida.valor1) : ''),
+    });
   }, [medida]);
 
   if (!medida) return null;
 
+  const error = validarValores(medida.tipo, valores.textos, valores.notas);
+
   const handleGuardar = async () => {
+    if (error) return;
     setGuardando(true);
     try {
-      await onGuardar(medida.id, {
-        valor1: Number(valor1.replace(',', '.')) || undefined,
-        valor2: esTension ? Number(valor2.replace(',', '.')) || undefined : undefined,
-        fechaHora: fecha.toISOString(),
-      });
+      await onGuardar(medida.id, aDatosMedida(medida.tipo, valores, fecha));
       onClose();
     } finally {
       setGuardando(false);
@@ -70,22 +67,9 @@ export function EditarMedidaModal({ medida, esTension, onClose, onGuardar, onEli
   };
 
   return (
-    <HojaModal visible titulo="Editar registro" onClose={onClose}>
-      <View style={styles.fila}>
-        <View style={styles.campoFlexible}>
-          <TextField
-            label={esTension ? 'Sistólica' : 'Valor'}
-            keyboardType="numeric"
-            value={valor1}
-            onChangeText={setValor1}
-          />
-        </View>
-        {esTension && (
-          <View style={styles.campoFlexible}>
-            <TextField label="Diastólica" keyboardType="numeric" value={valor2} onChangeText={setValor2} />
-          </View>
-        )}
-      </View>
+    <HojaModal visible titulo={`Editar · ${INFO_MEDIDA[medida.tipo].etiqueta}`} onClose={onClose}>
+      <CamposMedida tipo={medida.tipo} valor={valores} onChange={setValores} />
+      {!!error && <Text style={[typography.caption, { color: colors.error }]}>{error}</Text>}
 
       <View style={styles.fila}>
         <View style={styles.campoFlexible}>
@@ -97,7 +81,7 @@ export function EditarMedidaModal({ medida, esTension, onClose, onGuardar, onEli
       </View>
 
       <View style={styles.acciones}>
-        <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} disabled={guardando} />
+        <Button label={guardando ? 'Guardando…' : 'Guardar cambios'} onPress={handleGuardar} disabled={guardando || !!error} />
         <Button
           label="Eliminar registro"
           variant="danger"

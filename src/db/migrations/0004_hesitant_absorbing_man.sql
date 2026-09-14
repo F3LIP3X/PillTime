@@ -1,0 +1,1 @@
+ALTER TABLE `medidas_salud` ADD `valor_3` real;

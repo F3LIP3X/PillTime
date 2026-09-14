@@ -28,7 +28,13 @@ export type MomentoComida = (typeof MOMENTO_COMIDA)[number];
 export const ESTADO_TOMA = ['pendiente', 'tomado', 'omitido', 'pospuesto', 'eliminada'] as const;
 export type EstadoToma = (typeof ESTADO_TOMA)[number];
 
-export const TIPO_MEDIDA_SALUD = ['peso', 'tension', 'glucosa', 'sintoma', 'animo'] as const;
+/**
+ * `tipo` es `text` sin CHECK: añadir un valor aquí (como 'saturacion') no
+ * necesita migración. 'sintoma' es texto libre en `notas` (valor1 null);
+ * los registros de síntoma anteriores guardaban un número en valor1 y se
+ * siguen mostrando.
+ */
+export const TIPO_MEDIDA_SALUD = ['peso', 'tension', 'glucosa', 'saturacion', 'sintoma', 'animo'] as const;
 export type TipoMedidaSalud = (typeof TIPO_MEDIDA_SALUD)[number];
 
 export const medicamentos = sqliteTable('medicamentos', {
@@ -205,6 +211,12 @@ export const medidasSalud = sqliteTable('medidas_salud', {
   valor1: real('valor_1'),
   /** Segundo valor, solo para medidas de dos componentes (diastólica). */
   valor2: real('valor_2'),
+  /**
+   * Tercer valor, hoy solo pulsaciones por minuto dentro de un registro de
+   * tensión (los tensiómetros de brazo dan las tres cifras a la vez).
+   * Opcional. Columna genérica y no `pulso` para seguir el patrón valor1/2.
+   */
+  valor3: real('valor_3'),
   unidad: text('unidad'),
   notas: text('notas'),
   fechaHora: text('fecha_hora').notNull(),
