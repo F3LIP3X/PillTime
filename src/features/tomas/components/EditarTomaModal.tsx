@@ -64,6 +64,18 @@ export function EditarTomaModal({ toma, onClose, onCambiado }: Props) {
       });
       onCambiado();
       onClose();
+    } catch (error) {
+      // El índice único (pauta + fecha/hora) impide mover una toma encima
+      // de otra de la misma pauta.
+      const duplicada = String(error).includes('UNIQUE');
+      Alert.alert(
+        'No se pudo guardar',
+        duplicada
+          ? 'Ya hay otra toma de este medicamento a esa misma fecha y hora.'
+          : error instanceof Error
+            ? error.message
+            : String(error),
+      );
     } finally {
       setGuardando(false);
     }
