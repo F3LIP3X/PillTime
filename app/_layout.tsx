@@ -88,6 +88,8 @@ export default function RootLayout() {
           <Stack.Screen name="medicamento/nuevo" options={{ title: 'Nuevo medicamento' }} />
           <Stack.Screen name="medicamento/[id]/detalle" options={{ title: 'Medicamento' }} />
           <Stack.Screen name="medicamento/[id]/editar" options={{ title: 'Editar medicamento' }} />
+          <Stack.Screen name="historial" options={{ title: 'Historial' }} />
+          <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
           <Stack.Screen name="cita/index" options={{ title: 'Citas médicas' }} />
           <Stack.Screen name="cita/nueva" options={{ title: 'Nueva cita' }} />
         </Stack>

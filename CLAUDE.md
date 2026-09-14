@@ -67,8 +67,13 @@ por feature:
 
 ### Pantallas (`app/`)
 
-`(tabs)` = Inicio / Medicamentos / Historial / Medidas / Ajustes. Fuera
-de las tabs: `medicamento/nuevo`, `medicamento/[id]/{detalle,editar}`,
+`(tabs)` = Inicio / Medicamentos ("Fármacos") / Medidas (y Salud dental
+y Ciclo, ver más abajo). **Máximo 5 pestañas**: decisión del usuario del
+14-09-2026, porque con más las etiquetas se cortan. Historial y Ajustes
+salieron de la barra a pantallas de la pila (`app/historial.tsx`,
+`app/ajustes.tsx`): se abren con los iconos de arriba de Inicio, e
+Historial también desde la cabecera de Fármacos. Fuera de las tabs
+también: `medicamento/nuevo`, `medicamento/[id]/{detalle,editar}`,
 `cita/{index,nueva}`.
 
 `Medicamentos` es el listado completo (activos/terminados) para

@@ -165,7 +165,7 @@ export default function Historial() {
         }}
       />
 
-      <PieAccion dentroDeTabs>
+      <PieAccion>
         <Button
           label={exportando ? 'Generando PDF…' : 'Exportar a PDF'}
           variant="secondary"

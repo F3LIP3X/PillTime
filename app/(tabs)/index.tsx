@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarClock, Check, ChevronRight, Clock, History, Pill, SunMedium, TriangleAlert, X } from 'lucide-react-native';
+import { CalendarClock, Check, ChevronRight, Clock, History, Pill, Settings, SunMedium, TriangleAlert, X } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -107,8 +107,30 @@ export default function Inicio() {
 
   const cabecera = (
     <View style={styles.cabeceraPantalla}>
-      <Text style={[typography.caption, { color: colors.textSecondary }]}>{fechaDeHoy()}</Text>
-      <Text style={[typography.largeTitle, { color: colors.text }]}>Hoy</Text>
+      <View style={styles.tituloFila}>
+        <View style={styles.tituloTextos}>
+          <Text style={[typography.caption, { color: colors.textSecondary }]}>{fechaDeHoy()}</Text>
+          <Text style={[typography.largeTitle, { color: colors.text }]}>Hoy</Text>
+        </View>
+        <Pressable3D
+          onPress={() => router.push('/historial')}
+          escala={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="Historial de tomas"
+          style={[styles.botonCabecera, { backgroundColor: colors.fill }]}
+        >
+          <History color={colors.primary} size={20} />
+        </Pressable3D>
+        <Pressable3D
+          onPress={() => router.push('/ajustes')}
+          escala={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="Ajustes"
+          style={[styles.botonCabecera, { backgroundColor: colors.fill }]}
+        >
+          <Settings color={colors.primary} size={20} />
+        </Pressable3D>
+      </View>
 
       {tomasDeHoy.length > 0 && (
         <Card elevacion="raised" style={styles.bloqueCabecera}>
@@ -381,6 +403,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   cabeceraPantalla: { gap: spacing.xs, paddingBottom: spacing.xs },
+  tituloFila: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+  tituloTextos: { flex: 1 },
+  botonCabecera: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
   bloqueCabecera: { marginTop: spacing.sm },
   progresoFila: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   progresoTexto: { flex: 1, textAlign: 'right' },
