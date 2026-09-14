@@ -303,7 +303,14 @@ export const SINTOMAS_CICLO = [
   'nauseas',
   'antojos',
   'insomnio',
+  // Relevantes en SOP: se ofrecen solo con el interruptor activado (acné ya está arriba).
+  'exceso-vello',
+  'caida-cabello',
+  'cambios-peso',
 ] as const;
+
+/** Síntomas de SINTOMAS_CICLO que solo se sugieren con SOP activado. */
+export const SINTOMAS_SOP = ['exceso-vello', 'caida-cabello', 'cambios-peso'] as const;
 
 /**
  * Síntomas de un día del ciclo: una fila por día como máximo (`fecha`

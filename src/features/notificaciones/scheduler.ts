@@ -240,10 +240,10 @@ const DIAS_AVISO_CICLO = 2;
  * cambio en reglas o en el interruptor llama a `sincronizarNotificaciones`.
  */
 async function programarRecordatorioCiclo(db: Db, Notifications: ModuloNotificaciones, ahora: Date) {
-  const { sexo, recordatorioCiclo } = usePreferenciasStore.getState();
+  const { sexo, recordatorioCiclo, sop } = usePreferenciasStore.getState();
   if (sexo !== 'mujer' || !recordatorioCiclo) return;
 
-  const { prediccion } = analizar(await db.select().from(periodos), claveDia(ahora));
+  const { prediccion } = analizar(await db.select().from(periodos), claveDia(ahora), { sop });
   if (!prediccion) return;
 
   const [a, m, d] = sumarDias(prediccion.proximaRegla, -DIAS_AVISO_CICLO).split('-').map(Number);
@@ -253,7 +253,9 @@ async function programarRecordatorioCiclo(db: Db, Notifications: ModuloNotificac
   await Notifications.scheduleNotificationAsync({
     content: {
       title: `Tu próxima regla se estima en ${DIAS_AVISO_CICLO} días`,
-      body: `Hacia el ${fechaLegible(prediccion.proximaRegla, { weekday: 'long', day: 'numeric', month: 'long' })}, según tus ciclos anteriores.`,
+      body: `Hacia el ${fechaLegible(prediccion.proximaRegla, { weekday: 'long', day: 'numeric', month: 'long' })}, según tus ciclos anteriores.${
+        sop ? ' Con SOP es una estimación poco precisa.' : ''
+      }`,
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fecha, channelId: CANAL_RECORDATORIOS },
   });

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Redirect, useFocusEffect } from 'expo-router';
-import { BellRing, CalendarHeart, Droplet } from 'lucide-react-native';
+import { BellRing, CalendarHeart, Droplet, Info } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -39,6 +39,8 @@ function PantallaCiclo() {
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
   const recordatorio = usePreferenciasStore((s) => s.recordatorioCiclo);
   const setRecordatorio = usePreferenciasStore((s) => s.setRecordatorioCiclo);
+  const sop = usePreferenciasStore((s) => s.sop);
+  const setSop = usePreferenciasStore((s) => s.setSop);
 
   const celdas = useMemo(() => diasDeCuadricula(mes).filter((d): d is string => d !== null), [mes]);
   const { registros, guardar, recargar: recargarRegistros } = useRegistrosCiclo(celdas[0], celdas[celdas.length - 1]);
@@ -56,6 +58,12 @@ function PantallaCiclo() {
 
   const { actual, prediccion } = analisis;
   const reglaAbierta = periodos.find((p) => p.fechaFin === null && actual?.enRegla);
+
+  const handleSop = (activo: boolean) => {
+    setSop(activo);
+    // Cambia la fecha estimada: el aviso previo a la regla se reprograma.
+    void sincronizarNotificaciones(db);
+  };
 
   const handleRecordatorio = (activo: boolean) => {
     setRecordatorio(activo);
@@ -75,6 +83,14 @@ function PantallaCiclo() {
   } else if (actual.enRegla) {
     titular = `Día ${actual.diaDeRegla} de la regla`;
     detalle = `Empezó el ${fechaLegible(actual.inicio, { day: 'numeric', month: 'long' })}.`;
+  } else if (sop) {
+    // Con SOP no se da una cuenta atrás con la misma seguridad que a un
+    // ciclo regular: se enseña el día del ciclo y la fecha como orientación.
+    titular = `Día ${actual.diaDelCiclo} del ciclo`;
+    detalle =
+      prediccion.diasHasta >= 0
+        ? `Regla orientativa hacia el ${fechaLegible(prediccion.proximaRegla, { day: 'numeric', month: 'long' })}.`
+        : `La fecha orientativa (${fechaLegible(prediccion.proximaRegla, { day: 'numeric', month: 'long' })}) ya pasó; con SOP es habitual que el ciclo se alargue.`;
   } else if (prediccion.diasHasta > 0) {
     titular = prediccion.diasHasta === 1 ? 'La regla se estima mañana' : `Regla en ${prediccion.diasHasta} días`;
     detalle = `Hacia el ${fechaLegible(prediccion.proximaRegla, { weekday: 'long', day: 'numeric', month: 'long' })}. Día ${actual.diaDelCiclo} del ciclo.`;
@@ -86,7 +102,7 @@ function PantallaCiclo() {
     detalle = `Se esperaba el ${fechaLegible(prediccion.proximaRegla, { day: 'numeric', month: 'long' })}. Los ciclos varían; si te preocupa, consulta a tu médico.`;
   }
 
-  const mostrarFertil = prediccion && actual && !actual.enRegla && prediccion.fertilHasta >= hoy;
+  const mostrarFertil = !sop && prediccion && actual && !actual.enRegla && prediccion.fertilHasta >= hoy;
 
   return (
     <View style={[styles.pantalla, { backgroundColor: colors.background }]}>
@@ -105,6 +121,16 @@ function PantallaCiclo() {
               </View>
             </View>
             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>{detalle}</Text>
+            {analisis.confianza === 'baja' && prediccion && (
+              <View style={[styles.avisoConfianza, { backgroundColor: colors.warningSoft }]}>
+                <Info color={colors.warning} size={18} />
+                <Text style={[typography.caption, styles.textos, { color: colors.text }]}>
+                  {sop
+                    ? 'Predicción orientativa y menos precisa: con SOP los ciclos suelen durar de 35 a más de 90 días y puede haber meses sin ovulación. Por eso no se estiman la ovulación ni la ventana fértil.'
+                    : 'Tus ciclos son irregulares: toma las fechas como orientativas.'}
+                </Text>
+              </View>
+            )}
             {mostrarFertil && (
               <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
                 Ventana fértil estimada: {fechaLegible(prediccion.fertilDesde)} – {fechaLegible(prediccion.fertilHasta)}.
@@ -125,6 +151,7 @@ function PantallaCiclo() {
             fases={fases}
             diasConRegistro={diasConRegistro}
             hoy={hoy}
+            sinOvulacion={sop}
             onCambiarMes={(delta) => setMes((m) => primerDiaDelMes(m, delta))}
             onDiaPress={setDiaAbierto}
           />
@@ -140,8 +167,10 @@ function PantallaCiclo() {
               <Cifra etiqueta="Ciclo medio" valor={`${analisis.mediaCiclo} días`} />
               <Cifra etiqueta="Regla media" valor={`${analisis.mediaRegla} días`} />
             </View>
+            {/* Etiqueta y valor en líneas separadas: "Faltan datos (3 ciclos como
+                mínimo)" no cabía al lado y se salía de la tarjeta. */}
             <View style={[styles.filaRegularidad, { borderTopColor: colors.separator }]}>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Regularidad</Text>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>Regularidad</Text>
               <Text style={[typography.bodyStrong, { color: colors.text }]}>{ETIQUETA_REGULARIDAD[analisis.regularidad]}</Text>
             </View>
             {analisis.ciclosUsados === 0 && (
@@ -157,7 +186,7 @@ function PantallaCiclo() {
                   </Text>
                   <Text style={[typography.caption, { color: colors.textSecondary }]}>
                     Regla de {c.duracionRegla} {c.duracionRegla === 1 ? 'día' : 'días'}
-                    {c.valido ? '' : ' · no cuenta para la media (fuera de 15-60 días)'}
+                    {c.valido ? '' : ` · no cuenta para la media (fuera de ${analisis.rangoValido[0]}-${analisis.rangoValido[1]} días)`}
                   </Text>
                 </View>
                 <Text style={[typography.bodyStrong, { color: colors.text }]}>{c.duracionCiclo} días</Text>
@@ -167,6 +196,24 @@ function PantallaCiclo() {
         </View>
 
         <Card>
+          <View style={styles.resumenFila}>
+            <IconoCircular tamano={38}>
+              <CalendarHeart color={colors.primary} size={18} />
+            </IconoCircular>
+            <View style={styles.textos}>
+              <Text style={[typography.body, { color: colors.text }]}>Síndrome de ovario poliquístico (SOP)</Text>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                Acepta ciclos de hasta 120 días, no estima la ovulación y añade síntomas habituales del SOP.
+              </Text>
+            </View>
+            <Switch
+              value={sop}
+              onValueChange={handleSop}
+              trackColor={{ true: colors.primary, false: colors.fill }}
+              accessibilityLabel="Síndrome de ovario poliquístico (SOP)"
+            />
+          </View>
+          <View style={[styles.separadorAjuste, { backgroundColor: colors.separator }]} />
           <View style={styles.resumenFila}>
             <IconoCircular tamano={38}>
               <BellRing color={colors.primary} size={18} />
@@ -231,10 +278,10 @@ const styles = StyleSheet.create({
   grupo: { gap: spacing.sm, marginTop: spacing.sm },
   cifras: { flexDirection: 'row', padding: spacing.md, gap: spacing.md },
   cifra: { flex: 1, gap: 2 },
+  avisoConfianza: { flexDirection: 'row', gap: spacing.sm, padding: spacing.sm + 2, borderRadius: 10 },
+  separadorAjuste: { height: StyleSheet.hairlineWidth, marginVertical: spacing.md },
   filaRegularidad: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 2,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     borderTopWidth: StyleSheet.hairlineWidth,

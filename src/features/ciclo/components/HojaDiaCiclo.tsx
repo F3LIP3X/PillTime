@@ -6,7 +6,8 @@ import { Button } from '@/components/Button';
 import { Chips } from '@/components/Chips';
 import { HojaModal } from '@/components/HojaModal';
 import { TextField } from '@/components/TextField';
-import { ANIMO_CICLO, DOLOR, ENERGIA, FLUJO, SINTOMAS_CICLO } from '@/db/schema';
+import { ANIMO_CICLO, DOLOR, ENERGIA, FLUJO, SINTOMAS_CICLO, SINTOMAS_SOP } from '@/db/schema';
+import { usePreferenciasStore } from '@/stores/preferenciasStore';
 import { useTheme } from '@/theme/useTheme';
 import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -21,6 +22,7 @@ const ETIQUETAS: Record<string, string> = {
   baja: 'Baja', normal: 'Normal', alta: 'Alta',
   colicos: 'Cólicos', 'dolor-cabeza': 'Dolor de cabeza', hinchazon: 'Hinchazón', 'sensibilidad-pecho': 'Pecho sensible',
   'dolor-espalda': 'Dolor de espalda', acne: 'Acné', nauseas: 'Náuseas', antojos: 'Antojos', insomnio: 'Insomnio',
+  'exceso-vello': 'Exceso de vello', 'caida-cabello': 'Caída de cabello', 'cambios-peso': 'Cambios de peso',
 };
 
 const opciones = <T extends string>(valores: readonly T[]) => valores.map((valor) => ({ valor, etiqueta: ETIQUETAS[valor] }));
@@ -43,6 +45,7 @@ type Props = {
 /** Todo lo de un día del calendario: marcar inicio/fin de regla y apuntar síntomas. */
 export function HojaDiaCiclo({ dia, hoy, fase, periodos, mediaRegla, registro, onClose, onGuardar, onInicio, onFin, onEliminarPeriodo }: Props) {
   const { colors } = useTheme();
+  const sop = usePreferenciasStore((s) => s.sop);
   const [datos, setDatos] = useState<DatosRegistroCiclo>({ flujo: null, dolor: null, animo: null, energia: null, sintomas: null, notas: null });
   const [guardando, setGuardando] = useState(false);
 
@@ -59,6 +62,13 @@ export function HojaDiaCiclo({ dia, hoy, fase, periodos, mediaRegla, registro, o
   }, [dia, registro]);
 
   if (!dia) return null;
+
+  const marcados = (datos.sintomas ?? '').split(',').filter(Boolean);
+  // Los de SOP se sugieren solo con SOP activo, pero si un día ya tiene
+  // alguno apuntado se sigue mostrando aunque se haya desactivado.
+  const sintomasVisibles = SINTOMAS_CICLO.filter(
+    (s) => sop || !(SINTOMAS_SOP as readonly string[]).includes(s) || marcados.includes(s),
+  );
 
   const futuro = dia > hoy;
   const periodoDelDia = periodos.find((p) => dia >= p.fechaInicio && dia <= finDeRegla(p, hoy, mediaRegla));
@@ -154,8 +164,8 @@ export function HojaDiaCiclo({ dia, hoy, fase, periodos, mediaRegla, registro, o
             <Chips
               multiple
               etiquetaAccesible="Síntomas"
-              opciones={opciones(SINTOMAS_CICLO)}
-              seleccion={(datos.sintomas ?? '').split(',').filter(Boolean) as (typeof SINTOMAS_CICLO)[number][]}
+              opciones={opciones(sintomasVisibles)}
+              seleccion={marcados as (typeof SINTOMAS_CICLO)[number][]}
               onChange={(v) => cambiar({ sintomas: v.length ? v.join(',') : null })}
             />
           </View>

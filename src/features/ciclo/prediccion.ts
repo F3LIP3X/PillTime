@@ -16,6 +16,15 @@ import { diasEntre, sumarDias } from './fechas';
  * - Regularidad por la desviación típica de la duración del ciclo.
  *
  * Son ESTIMACIONES y la pantalla lo dice: no sirven como anticonceptivo.
+ *
+ * Con SOP (síndrome de ovario poliquístico, interruptor en la pestaña
+ * Ciclo) cambia a propósito, sin pretender ser un sistema clínico:
+ * - Ciclos válidos hasta 120 días (los de 35 a 90+ días son habituales).
+ * - Duración típica por MEDIANA, no media: un ciclo de 90 días entre
+ *   varios de 40 no debe arrastrar la estimación.
+ * - No se estiman ovulación ni ventana fértil (son frecuentes los ciclos
+ *   sin ovulación): el calendario solo marca la regla registrada y la
+ *   prevista, y `confianza` pasa a 'baja' para que la interfaz lo avise.
  */
 
 export type Periodo = { id: number; fechaInicio: string; fechaFin: string | null };
@@ -26,7 +35,15 @@ export type Regularidad = 'sin-datos' | 'muy-regular' | 'regular' | 'algo-irregu
 
 export type CicloPasado = { inicio: string; duracionCiclo: number; duracionRegla: number; valido: boolean };
 
+export type OpcionesCiclo = { sop?: boolean };
+
 export type Analisis = {
+  sop: boolean;
+  /** 'baja' con SOP o ciclos irregulares: la interfaz lo dice en vez de dar la fecha con seguridad. */
+  confianza: 'normal' | 'baja';
+  /** Duraciones de ciclo (días) que cuentan para la estimación. */
+  rangoValido: [number, number];
+  /** Media (o mediana con SOP) de los ciclos válidos. */
   mediaCiclo: number;
   mediaRegla: number;
   ciclosUsados: number;
@@ -49,12 +66,19 @@ export const CICLO_TIPO = 28;
 export const REGLA_TIPO = 5;
 const CICLO_MIN = 15;
 const CICLO_MAX = 60;
+const CICLO_MAX_SOP = 120;
 const CICLOS_PROMEDIADOS = 6;
 const FASE_LUTEA = 14;
 /** Una regla "en curso" de más de 10 días casi seguro es que no se marcó el fin. */
 const REGLA_MAX_ABIERTA = 10;
 
 const media = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+function mediana(xs: number[]) {
+  const o = [...xs].sort((a, b) => a - b);
+  const mitad = Math.floor(o.length / 2);
+  return o.length % 2 ? o[mitad] : (o[mitad - 1] + o[mitad]) / 2;
+}
 
 function ordenar(periodos: Periodo[]) {
   return [...periodos].sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
@@ -67,7 +91,10 @@ export function finDeRegla(p: Periodo, hoy: string, mediaRegla: number): string 
   return dias > REGLA_MAX_ABIERTA ? sumarDias(p.fechaInicio, mediaRegla - 1) : hoy;
 }
 
-export function analizar(periodos: Periodo[], hoy: string): Analisis {
+export function analizar(periodos: Periodo[], hoy: string, opciones: OpcionesCiclo = {}): Analisis {
+  const sop = opciones.sop ?? false;
+  const cicloMax = sop ? CICLO_MAX_SOP : CICLO_MAX;
+  const rangoValido: [number, number] = [CICLO_MIN, cicloMax];
   const lista = ordenar(periodos).filter((p) => p.fechaInicio <= hoy);
 
   const duracionesRegla = lista
@@ -84,13 +111,13 @@ export function analizar(periodos: Periodo[], hoy: string): Analisis {
       inicio: lista[i].fechaInicio,
       duracionCiclo,
       duracionRegla: diasEntre(lista[i].fechaInicio, finDeRegla(lista[i], hoy, mediaRegla)) + 1,
-      valido: duracionCiclo >= CICLO_MIN && duracionCiclo <= CICLO_MAX,
+      valido: duracionCiclo >= CICLO_MIN && duracionCiclo <= cicloMax,
     });
   }
   historial.reverse();
 
   const validos = historial.filter((c) => c.valido).slice(0, CICLOS_PROMEDIADOS).map((c) => c.duracionCiclo);
-  const mediaCiclo = validos.length ? Math.round(media(validos)) : CICLO_TIPO;
+  const mediaCiclo = validos.length ? Math.round(sop ? mediana(validos) : media(validos)) : CICLO_TIPO;
 
   let desviacion: number | null = null;
   let regularidad: Regularidad = 'sin-datos';
@@ -100,9 +127,12 @@ export function analizar(periodos: Periodo[], hoy: string): Analisis {
     regularidad = desviacion <= 2 ? 'muy-regular' : desviacion <= 4 ? 'regular' : desviacion <= 7 ? 'algo-irregular' : 'irregular';
   }
 
+  const confianza = sop || regularidad === 'irregular' ? 'baja' : 'normal';
+  const base = { sop, confianza, rangoValido, mediaCiclo, mediaRegla, ciclosUsados: validos.length, desviacion, regularidad, historial } as const;
+
   const ultimo = lista[lista.length - 1];
   if (!ultimo) {
-    return { mediaCiclo, mediaRegla, ciclosUsados: 0, desviacion, regularidad, historial, actual: null, prediccion: null };
+    return { ...base, ciclosUsados: 0, actual: null, prediccion: null };
   }
 
   const diaDelCiclo = diasEntre(ultimo.fechaInicio, hoy) + 1;
@@ -112,12 +142,7 @@ export function analizar(periodos: Periodo[], hoy: string): Analisis {
   const ovulacion = sumarDias(proximaRegla, -FASE_LUTEA);
 
   return {
-    mediaCiclo,
-    mediaRegla,
-    ciclosUsados: validos.length,
-    desviacion,
-    regularidad,
-    historial,
+    ...base,
     actual: { inicio: ultimo.fechaInicio, diaDelCiclo, enRegla, diaDeRegla: enRegla ? diaDelCiclo : null },
     prediccion: {
       proximaRegla,
@@ -129,9 +154,14 @@ export function analizar(periodos: Periodo[], hoy: string): Analisis {
   };
 }
 
-/** Fase de un ciclo que empieza en `inicio`, dura `duracion` días y cuya regla acaba en `finRegla`. */
-function faseEnCiclo(dia: string, inicio: string, duracion: number, finRegla: string, prevista: boolean): Fase {
+/**
+ * Fase de un ciclo que empieza en `inicio`, dura `duracion` días y cuya
+ * regla acaba en `finRegla`. Con `sinOvulacion` (SOP) fuera de la regla no
+ * hay fase: no se puede estimar cuándo (ni si) se ovula.
+ */
+function faseEnCiclo(dia: string, inicio: string, duracion: number, finRegla: string, prevista: boolean, sinOvulacion: boolean): Fase | null {
   if (dia <= finRegla) return prevista ? 'menstruacion-prevista' : 'menstruacion';
+  if (sinOvulacion) return null;
   const ovulacion = sumarDias(inicio, duracion - FASE_LUTEA);
   if (dia === ovulacion) return 'ovulacion';
   if (dia >= sumarDias(ovulacion, -5) && dia <= sumarDias(ovulacion, 1)) return 'fertil';
@@ -149,7 +179,10 @@ export function fasesDeDias(dias: string[], periodos: Periodo[], analisis: Anali
   const fases = new Map<string, Fase>();
   if (lista.length === 0) return fases;
 
-  const { mediaCiclo, mediaRegla } = analisis;
+  const { mediaCiclo, mediaRegla, sop } = analisis;
+  const poner = (dia: string, fase: Fase | null) => {
+    if (fase) fases.set(dia, fase);
+  };
   const ultimo = lista[lista.length - 1];
   let proximaPrevista = sumarDias(ultimo.fechaInicio, mediaCiclo);
   if (proximaPrevista <= hoy) proximaPrevista = sumarDias(hoy, 1);
@@ -169,7 +202,7 @@ export function fasesDeDias(dias: string[], periodos: Periodo[], analisis: Anali
     const siguiente = lista[indice + 1];
 
     if (siguiente) {
-      fases.set(dia, faseEnCiclo(dia, p.fechaInicio, diasEntre(p.fechaInicio, siguiente.fechaInicio), finDeRegla(p, hoy, mediaRegla), false));
+      poner(dia, faseEnCiclo(dia, p.fechaInicio, diasEntre(p.fechaInicio, siguiente.fechaInicio), finDeRegla(p, hoy, mediaRegla), false, sop));
       continue;
     }
 
@@ -185,14 +218,14 @@ export function fasesDeDias(dias: string[], periodos: Periodo[], analisis: Anali
         fases.set(dia, 'menstruacion-prevista');
         continue;
       }
-      fases.set(dia, faseEnCiclo(dia, p.fechaInicio, duracion, finReal, false));
+      poner(dia, faseEnCiclo(dia, p.fechaInicio, duracion, finReal, false, sop));
       continue;
     }
 
     // Ciclos futuros estimados, uno tras otro con la duración media.
     const n = Math.floor(diasEntre(proximaPrevista, dia) / mediaCiclo);
     const inicio = sumarDias(proximaPrevista, n * mediaCiclo);
-    fases.set(dia, faseEnCiclo(dia, inicio, mediaCiclo, sumarDias(inicio, mediaRegla - 1), true));
+    poner(dia, faseEnCiclo(dia, inicio, mediaCiclo, sumarDias(inicio, mediaRegla - 1), true, sop));
   }
   return fases;
 }

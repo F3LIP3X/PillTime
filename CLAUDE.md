@@ -317,6 +317,18 @@ si se entra sin tenerla activa. Todo local.
   `onFase`), validados como par para daltonismo; en el calendario cada
   fase lleva también una forma distinta (relleno, borde discontinuo para
   la regla prevista, fondo suave, punto de síntomas) y leyenda.
+- **SOP** (síndrome de ovario poliquístico): interruptor en la propia
+  pestaña Ciclo, un booleano `sop` en `preferenciasStore`. Decisión: un
+  flag que cambia la lógica y los mensajes, no un sistema clínico ni una
+  columna nueva. Con él, `analizar(..., { sop: true })` acepta ciclos de
+  15 a 120 días (sin SOP, 15-60), usa la mediana en vez de la media, no
+  estima ovulación ni ventana fértil (en calendario solo regla registrada
+  y prevista, y la leyenda se ajusta), y `confianza: 'baja'` hace que la
+  pantalla muestre un aviso de predicción orientativa; también se da con
+  ciclos irregulares sin SOP. Los síntomas de `SINTOMAS_SOP` (exceso de
+  vello, caída de cabello, cambios de peso; el acné ya estaba) solo se
+  sugieren con SOP activo, salvo que un día ya los tenga apuntados. El
+  recordatorio del ciclo lee el flag y lo menciona en el texto.
 - Las pantallas repiten que son estimaciones y que no sirven como
   anticonceptivo. No lo quites.
 

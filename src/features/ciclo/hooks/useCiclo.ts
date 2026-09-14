@@ -5,6 +5,7 @@ import { useDb } from '@/db/client';
 import { periodos, registrosCiclo } from '@/db/schema';
 import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 import { claveDia } from '@/features/tomas/ocurrencias';
+import { usePreferenciasStore } from '@/stores/preferenciasStore';
 import { analizar, type Periodo } from '../prediccion';
 import { planInicio, validarFin } from '../reglas';
 
@@ -24,7 +25,9 @@ export function useCiclo() {
   }, [recargar]);
 
   const hoy = claveDia(new Date());
-  const analisis = useMemo(() => analizar(lista, hoy), [lista, hoy]);
+  // Suscrito al flag: activar o desactivar SOP recalcula al momento.
+  const sop = usePreferenciasStore((s) => s.sop);
+  const analisis = useMemo(() => analizar(lista, hoy, { sop }), [lista, hoy, sop]);
 
   const tras = useCallback(async () => {
     await recargar();

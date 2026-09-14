@@ -16,6 +16,8 @@ type Props = {
   fases: Map<string, Fase>;
   diasConRegistro: Set<string>;
   hoy: string;
+  /** Con SOP no se estiman ovulación ni ventana fértil: fuera de la leyenda. */
+  sinOvulacion?: boolean;
   onCambiarMes: (delta: number) => void;
   onDiaPress: (dia: string) => void;
 };
@@ -36,7 +38,7 @@ export function diasDeCuadricula(mes: string): (string | null)[] {
  * color (relleno, borde discontinuo, fondo suave, punto), y la leyenda de
  * debajo las explica: la fase nunca se comunica solo por color.
  */
-export function CalendarioCiclo({ mes, fases, diasConRegistro, hoy, onCambiarMes, onDiaPress }: Props) {
+export function CalendarioCiclo({ mes, fases, diasConRegistro, hoy, sinOvulacion = false, onCambiarMes, onDiaPress }: Props) {
   const { colors } = useTheme();
   const [a, m] = mes.split('-').map(Number);
   const titulo = new Date(a, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
@@ -123,12 +125,16 @@ export function CalendarioCiclo({ mes, fases, diasConRegistro, hoy, onCambiarMes
         <ElementoLeyenda etiqueta="Regla prevista">
           <View style={[styles.muestra, { borderColor: colors.menstruacion, borderWidth: 1.5, borderStyle: 'dashed' }]} />
         </ElementoLeyenda>
-        <ElementoLeyenda etiqueta="Ventana fértil">
-          <View style={[styles.muestra, { backgroundColor: colors.fertilSoft }]} />
-        </ElementoLeyenda>
-        <ElementoLeyenda etiqueta="Ovulación">
-          <View style={[styles.muestra, { backgroundColor: colors.fertil }]} />
-        </ElementoLeyenda>
+        {!sinOvulacion && (
+          <>
+            <ElementoLeyenda etiqueta="Ventana fértil">
+              <View style={[styles.muestra, { backgroundColor: colors.fertilSoft }]} />
+            </ElementoLeyenda>
+            <ElementoLeyenda etiqueta="Ovulación">
+              <View style={[styles.muestra, { backgroundColor: colors.fertil }]} />
+            </ElementoLeyenda>
+          </>
+        )}
         <ElementoLeyenda etiqueta="Síntomas">
           <View style={[styles.punto, { backgroundColor: colors.textSecondary }]} />
         </ElementoLeyenda>

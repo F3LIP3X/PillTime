@@ -39,11 +39,17 @@ type PreferenciasStore = {
   sexo: Sexo | null;
   /** Aviso opcional unos días antes de la próxima regla estimada. */
   recordatorioCiclo: boolean;
+  /**
+   * Síndrome de ovario poliquístico. Solo cambia la lógica de predicción y
+   * los mensajes del ciclo (ver prediccion.ts); no es un dato clínico más.
+   */
+  sop: boolean;
   setTema: (tema: PreferenciaTema) => void;
   setColorBase: (color: ColorBase) => void;
   setSexo: (sexo: Sexo) => void;
   completarOnboarding: () => void;
   setRecordatorioCiclo: (activo: boolean) => void;
+  setSop: (activo: boolean) => void;
 };
 
 export const usePreferenciasStore = create<PreferenciasStore>()(
@@ -54,11 +60,13 @@ export const usePreferenciasStore = create<PreferenciasStore>()(
       onboardingCompletado: false,
       sexo: null,
       recordatorioCiclo: false,
+      sop: false,
       setTema: (tema) => set({ tema }),
       setColorBase: (colorBase) => set({ colorBase }),
       setSexo: (sexo) => set({ sexo }),
       completarOnboarding: () => set({ onboardingCompletado: true }),
       setRecordatorioCiclo: (recordatorioCiclo) => set({ recordatorioCiclo }),
+      setSop: (sop) => set({ sop }),
     }),
     {
       name: 'pilltime-preferencias',
