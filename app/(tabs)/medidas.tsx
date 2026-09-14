@@ -75,7 +75,7 @@ export default function Medidas() {
             <View style={styles.campoFlexible}>
               <TextField
                 label={esTension ? 'Sistólica' : ETIQUETA_TIPO[tipo]}
-                ayuda={unidad || undefined}
+                sufijo={unidad || undefined}
                 keyboardType="numeric"
                 value={valor1}
                 onChangeText={setValor1}
@@ -86,7 +86,7 @@ export default function Medidas() {
               <View style={styles.campoFlexible}>
                 <TextField
                   label="Diastólica"
-                  ayuda={unidad}
+                  sufijo={unidad}
                   keyboardType="numeric"
                   value={valor2}
                   onChangeText={setValor2}

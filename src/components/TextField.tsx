@@ -8,55 +8,72 @@ import { typography } from '@/theme/typography';
 
 type Props = TextInputProps & {
   label: string;
-  /** Texto pequeño bajo el campo (unidades, ayuda). */
+  /** Texto pequeño bajo el campo (una pista, un error). No para unidades: eso es `sufijo`. */
   ayuda?: string;
+  /** Unidad dentro del campo, a la derecha del valor ("kg", "horas"). */
+  sufijo?: string;
+  /** Pinta la ayuda y el borde en color de error. */
+  error?: boolean;
 };
 
-export function TextField({ label, ayuda, style, onFocus, onBlur, ...props }: Props) {
+/**
+ * La unidad va DENTRO de la caja, pegada al número, y no debajo: bug de
+ * diseño reportado por beta testers ("kg" quedaba suelto bajo el campo de
+ * peso y parecía otra etiqueta). Por eso el borde y el fondo los lleva la
+ * vista contenedora y el TextInput va sin borde dentro.
+ */
+export function TextField({ label, ayuda, sufijo, error = false, style, onFocus, onBlur, ...props }: Props) {
   const { colors } = useTheme();
   const [enfocado, setEnfocado] = useState(false);
+
+  const colorBorde = error ? colors.error : enfocado ? colors.primary : 'transparent';
 
   return (
     <View style={styles.container}>
       <Text style={[typography.caption, { color: colors.textSecondary }]}>{label}</Text>
-      <TextInput
-        placeholderTextColor={colors.textTertiary}
-        selectionColor={colors.primary}
-        onFocus={(e) => {
-          setEnfocado(true);
-          onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setEnfocado(false);
-          onBlur?.(e);
-        }}
-        style={[
-          typography.body,
-          styles.input,
-          {
-            color: colors.text,
-            backgroundColor: colors.fill,
-            // El foco se marca con un borde del color de marca en vez de
-            // con un cambio de fondo: no desplaza nada y se ve claro.
-            borderColor: enfocado ? colors.primary : 'transparent',
-          },
-          style,
-        ]}
-        accessibilityLabel={label}
-        {...props}
-      />
-      {!!ayuda && <Text style={[typography.caption, { color: colors.textTertiary }]}>{ayuda}</Text>}
+      <View style={[styles.caja, { backgroundColor: colors.fill, borderColor: colorBorde }]}>
+        <TextInput
+          placeholderTextColor={colors.textTertiary}
+          selectionColor={colors.primary}
+          onFocus={(e) => {
+            setEnfocado(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setEnfocado(false);
+            onBlur?.(e);
+          }}
+          style={[typography.body, styles.input, { color: colors.text }, style]}
+          accessibilityLabel={sufijo ? `${label} (${sufijo})` : label}
+          {...props}
+        />
+        {!!sufijo && (
+          <Text style={[typography.body, styles.sufijo, { color: colors.textTertiary }]} numberOfLines={1}>
+            {sufijo}
+          </Text>
+        )}
+      </View>
+      {!!ayuda && (
+        <Text style={[typography.caption, { color: error ? colors.error : colors.textTertiary }]}>{ayuda}</Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  input: {
+  caja: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1.5,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     minHeight: ALTO_CONTROL,
   },
+  input: {
+    flex: 1,
+    alignSelf: 'stretch',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  sufijo: { paddingRight: spacing.md },
 });
