@@ -254,7 +254,11 @@ registradas y:
   al onboarding.
 - `(tabs)/_layout` devuelve `<Redirect href="/onboarding" />` si no está
   completado (así se entra la primera vez, porque la app arranca en `/`).
-- `onboarding/_layout` redirige a `/` si ya está completado.
+- `onboarding/_layout` redirige a `/` si ya estaba completado **al
+  montarse**: lee el flag una vez con `getState()`, sin suscribirse. Con
+  suscripción, al completar cambiaba su `Stack` por un `<Redirect>` en el
+  mismo render en que `listo.tsx` navegaba, y en dispositivo se seguía
+  quedando en el último paso.
 
 El permiso de notificaciones se pide al terminar el onboarding
 (`useInicializarNotificaciones(onboardingCompletado)`), no encima de la

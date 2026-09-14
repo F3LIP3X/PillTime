@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { CircleCheckBig } from 'lucide-react-native';
 
@@ -14,7 +15,11 @@ export default function Listo() {
   // Primero el flag (Zustand es síncrono) y después navegar: si fuera al
   // revés, (tabs)/_layout vería el flag aún a false y devolvería aquí.
   // Navegación explícita, no un guard que reaccione al flag: ver app/_layout.tsx.
+  // Un segundo toque durante la transición lanzaría otro replace encima.
+  const saliendo = useRef(false);
   const empezar = () => {
+    if (saliendo.current) return;
+    saliendo.current = true;
     completarOnboarding();
     router.replace('/');
   };
