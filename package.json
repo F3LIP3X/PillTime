@@ -1,6 +1,7 @@
 {
   "name": "pilltime",
   "version": "1.0.0",
+  "license": "UNLICENSED",
   "main": "expo-router/entry",
   "dependencies": {
     "@react-native-community/datetimepicker": "9.1.0",
