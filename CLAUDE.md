@@ -61,8 +61,13 @@ por feature:
   `useTomasDeHoy`, etc.), sin capa de servicio intermedia.
 - `src/theme/` — paleta "Teal Trust", tipografía y espaciado
   (`docs/plan-tecnico-diseno.md`), con `useTheme()` para claro/oscuro.
-- `src/stores/` — Zustand, **solo estado de UI** (p. ej. preferencia de
-  tema). Los datos persistentes viven en SQLite, nunca en un store.
+- `src/stores/` — Zustand, **solo estado de UI**. Los datos de salud
+  viven en SQLite (Drizzle), nunca en un store. Excepción acotada:
+  `preferenciasStore` (tema, color, onboarding) persiste con `persist`
+  sobre `expo-sqlite/kv-store`, un almacén clave-valor aparte de
+  `pilltime.db`. No va en Drizzle porque se lee al arrancar, antes de las
+  migraciones y de `SQLiteProvider`, y el kv-store tiene API síncrona: la
+  primera pantalla ya sale con el color correcto, sin parpadeo.
 - `src/components/` — UI compartida entre features.
 
 ### Pantallas (`app/`)
@@ -489,8 +494,22 @@ se añadieron después (`radii.ts`, `shadows.ts`, y los colores de
 superficie en `colors.ts`). Reglas que conviene no romper por descuido:
 
 - **Nunca colores literales en las pantallas.** Todo sale de
-  `useTheme().colors`. El único literal aceptado es `#FFFFFF` para texto
-  sobre el primario, porque no cambia entre temas.
+  `useTheme().colors`, también el texto sobre el primario: es
+  `colors.onPrimary`, **no `#FFFFFF`**. Antes se aceptaba el blanco fijo,
+  pero en oscuro el primario del plan (`#02A6B8`) con texto blanco da
+  2,94:1 (el mínimo AA es 4,5:1); `onPrimary` es casi negro ahí (6,1:1).
+- **Color personalizable** (Ajustes → Color de la app, bloque de beta
+  testers): `src/theme/paletas.ts`. `teal` es la paleta de marca tal cual;
+  el resto (azul, verde, morado, rosa, grafito) se genera en OKLCH
+  (`color.ts`) buscando la luminosidad que cumple el contraste, no con
+  valores a ojo. Garantías comprobadas para los 6 colores y ambos temas:
+  `onPrimary`/primario ≥ 4,5, texto secundario ≥ 4,5 sobre fondo y
+  superficie, primario ≥ 4,5 sobre `primarySoft` y superficie (teal, 3:1:
+  son los valores del plan). Lista cerrada a propósito: con un color libre
+  no se puede garantizar el contraste sin desvirtuarlo, y rojo o ámbar se
+  confundirían con los colores de estado. Estados y series de gráficas no
+  cambian con el color: su significado no debe depender de él. Si añades
+  un color, vuelve a comprobar esos contrastes.
 - **Sombras solo en claro.** `sombraSegunTema()` las anula en oscuro: en
   un fondo casi negro no se ven y solo ensucian. Ahí la elevación la da
   `colors.surface`, que es más claro que `colors.background`.

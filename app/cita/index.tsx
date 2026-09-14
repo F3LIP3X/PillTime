@@ -68,7 +68,7 @@ export default function ListaCitas() {
       <PieAccion>
         <Button
           label="Nueva cita"
-          icono={<Plus color="#FFFFFF" size={18} />}
+          icono={<Plus color={colors.onPrimary} size={18} />}
           onPress={() => router.push('/cita/nueva')}
         />
       </PieAccion>

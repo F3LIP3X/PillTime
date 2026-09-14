@@ -166,7 +166,7 @@ export function CamposMedicamento({ valor, onChange }: Props) {
               accessibilityLabel="Escanear código de barras"
               style={[styles.botonEscanear, { backgroundColor: colors.primary }]}
             >
-              <ScanBarcode color="#FFFFFF" size={22} />
+              <ScanBarcode color={colors.onPrimary} size={22} />
             </Pressable>
           </View>
 

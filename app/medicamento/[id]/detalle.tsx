@@ -216,7 +216,7 @@ export default function DetalleMedicamento() {
                             <Text
                               style={[
                                 typography.caption,
-                                { color: activo ? '#FFFFFF' : colors.textTertiary, fontWeight: '600' },
+                                { color: activo ? colors.onPrimary : colors.textTertiary, fontWeight: '600' },
                               ]}
                             >
                               {ETIQUETA_DIA[dia]}
@@ -327,7 +327,7 @@ export default function DetalleMedicamento() {
       <View style={styles.acciones}>
         <Button
           label="Editar medicamento"
-          icono={<Pencil color="#FFFFFF" size={18} />}
+          icono={<Pencil color={colors.onPrimary} size={18} />}
           onPress={() => router.push(`/medicamento/${medicamentoId}/editar`)}
         />
         {medicamento.activo ? (

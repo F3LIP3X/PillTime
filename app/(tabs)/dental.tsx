@@ -143,7 +143,7 @@ export default function SaludDental() {
           ) : (
             <Button
               label={recienTerminado ? 'Empezar otro' : 'Empezar cepillado'}
-              icono={<Play color="#FFFFFF" size={18} />}
+              icono={<Play color={colors.onPrimary} size={18} />}
               onPress={handleEmpezar}
             />
           )}
@@ -204,7 +204,7 @@ export default function SaludDental() {
                       <Text
                         style={[
                           typography.caption,
-                          { color: celda.futuro ? colors.textTertiary : completo ? '#FFFFFF' : colors.text, fontWeight: celda.esHoy ? '700' : '400' },
+                          { color: celda.futuro ? colors.textTertiary : completo ? colors.onPrimary : colors.text, fontWeight: celda.esHoy ? '700' : '400' },
                         ]}
                       >
                         {celda.dia}
@@ -212,7 +212,7 @@ export default function SaludDental() {
                       {/* Puntos además del color: el estado nunca solo por color. */}
                       <View style={styles.puntos}>
                         {Array.from({ length: Math.min(celda.cepillados, 3) }, (_, i) => (
-                          <View key={i} style={[styles.punto, { backgroundColor: completo ? '#FFFFFF' : colors.primary }]} />
+                          <View key={i} style={[styles.punto, { backgroundColor: completo ? colors.onPrimary : colors.primary }]} />
                         ))}
                       </View>
                     </View>

@@ -16,6 +16,13 @@ export const lightColors = {
   primaryPressed: '#016977',
   /** Tinte suave del primario: círculos de icono, badges, fondos de énfasis. */
   primarySoft: '#E1EFF1',
+  /**
+   * Texto e iconos SOBRE el primario. En claro es blanco (4,67:1 con
+   * #028090). En oscuro NO: el primario del plan (#02A6B8) está pensado
+   * para contrastar con el fondo oscuro, y con texto blanco encima solo
+   * da 2,94:1; con este casi negro da más de 6:1.
+   */
+  onPrimary: '#FFFFFF',
   secondary: '#00A896',
   accent: '#02C39A',
 
@@ -51,12 +58,13 @@ export const lightColors = {
   /** Rejilla y eje de gráficas: un paso sobre la superficie, recesivos. */
   rejilla: '#E4EBEC',
   eje: '#C5D0D2',
-} as const;
+};
 
-export const darkColors = {
+export const darkColors: Colors = {
   primary: '#02A6B8',
   primaryPressed: '#028C9B',
   primarySoft: '#0D2B30',
+  onPrimary: '#0B1A1C',
   secondary: '#00A896',
   accent: '#02C39A',
 
@@ -80,6 +88,6 @@ export const darkColors = {
   serie2: '#D95926',
   rejilla: '#263030',
   eje: '#3A4545',
-} as const;
+};
 
-export type Colors = typeof lightColors;
+export type Colors = { [K in keyof typeof lightColors]: string };

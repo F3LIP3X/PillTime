@@ -1,16 +1,22 @@
 import { useColorScheme } from 'react-native';
 
-import { useThemeStore } from '@/stores/themeStore';
-import { darkColors, lightColors } from './colors';
+import { usePreferenciasStore } from '@/stores/preferenciasStore';
+import { paletaDe } from './paletas';
 
+/**
+ * Tema y paleta activos. La paleta sale del color base elegido en Ajustes
+ * (`paletaDe` la memoiza por color y modo), así que cambiar el color
+ * repinta toda la app sin reiniciar: todo color de pantalla sale de aquí.
+ */
 export function useTheme() {
-  const preferencia = useThemeStore((s) => s.preferencia);
+  const tema = usePreferenciasStore((s) => s.tema);
+  const colorBase = usePreferenciasStore((s) => s.colorBase);
   const sistema = useColorScheme();
 
-  const esOscuro = preferencia === 'oscuro' || (preferencia === 'sistema' && sistema === 'dark');
+  const esOscuro = tema === 'oscuro' || (tema === 'sistema' && sistema === 'dark');
 
   return {
     esOscuro,
-    colors: esOscuro ? darkColors : lightColors,
+    colors: paletaDe(colorBase, esOscuro),
   };
 }

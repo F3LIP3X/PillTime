@@ -88,7 +88,7 @@ export function EditorPauta({ valor, onChange, permitirCambiarModo = true }: Pro
                     style={[styles.diaChip, { backgroundColor: activo ? colors.primary : colors.fill }]}
                   >
                     <Text
-                      style={[typography.bodySmall, { color: activo ? '#FFFFFF' : colors.textSecondary, fontWeight: '600' }]}
+                      style={[typography.bodySmall, { color: activo ? colors.onPrimary : colors.textSecondary, fontWeight: '600' }]}
                     >
                       {dia.etiqueta}
                     </Text>

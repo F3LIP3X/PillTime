@@ -119,7 +119,7 @@ export default function Medicamentos() {
       <PieAccion dentroDeTabs>
         <Button
           label="Añadir medicamento"
-          icono={<Plus color="#FFFFFF" size={18} />}
+          icono={<Plus color={colors.onPrimary} size={18} />}
           onPress={() => router.push('/medicamento/nuevo')}
           accessibilityLabel="Añadir medicamento"
         />

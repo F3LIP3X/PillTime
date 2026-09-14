@@ -387,7 +387,7 @@ function FilaToma({ toma, primera, ultima, onEditar, onTomado, onOmitir }: Props
             accessibilityLabel={`Marcar ${toma.nombreMedicamento} como tomado`}
             style={[styles.botonRedondo, { backgroundColor: colors.primary }]}
           >
-            <Check color="#FFFFFF" size={22} strokeWidth={2.5} />
+            <Check color={colors.onPrimary} size={22} strokeWidth={2.5} />
           </Pressable3D>
         </View>
       )}

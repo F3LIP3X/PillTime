@@ -99,7 +99,7 @@ function Registros() {
                 {intentado && !!error && <Text style={[typography.caption, { color: colors.error }]}>{error}</Text>}
                 <Button
                   label="Registrar"
-                  icono={<Plus color="#FFFFFF" size={18} />}
+                  icono={<Plus color={colors.onPrimary} size={18} />}
                   disabled={vacio}
                   onPress={handleRegistrar}
                 />

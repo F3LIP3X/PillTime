@@ -64,7 +64,7 @@ export function SegmentedControl<T extends string>({
                 typography.bodySmall,
                 {
                   fontWeight: activa ? '600' : '400',
-                  color: activa ? (esOscuro ? '#FFFFFF' : colors.primary) : colors.textSecondary,
+                  color: activa ? (esOscuro ? colors.onPrimary : colors.primary) : colors.textSecondary,
                 },
               ]}
             >

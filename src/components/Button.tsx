@@ -32,7 +32,7 @@ export function Button({
   const { colors, esOscuro } = useTheme();
 
   const estilos: Record<Variante, { fondo: string; texto: string; borde?: string }> = {
-    primary: { fondo: colors.primary, texto: '#FFFFFF' },
+    primary: { fondo: colors.primary, texto: colors.onPrimary },
     // "Tinted": fondo del color de marca muy diluido, texto del color de
     // marca. Pesa mucho menos que un segundo botón sólido al lado.
     secondary: { fondo: colors.primarySoft, texto: colors.primary },
