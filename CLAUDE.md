@@ -71,7 +71,7 @@ por feature:
 de las tabs: `medicamento/nuevo`, `medicamento/[id]/{detalle,editar}`,
 `cita/{index,nueva}`.
 
-`Medicamentos` es el listado completo (activos/archivados) para
+`Medicamentos` es el listado completo (activos/terminados) para
 gestionar los datos de cada uno — Inicio ya no sirve para eso desde que
 solo muestra la próxima toma pendiente por medicamento.
 
@@ -116,11 +116,38 @@ virtual se inserta directamente como tumba, que es lo que impide que la
 pauta la genere después (`eliminarOcurrencia`). El resto de la pauta no
 cambia.
 
-**Archivar, no borrar.** `useArchivarMedicamento` pone `activo = false`
-en vez de borrar la fila; `useMedicamentos()` filtra `activo = true` por
-defecto (parámetro `soloActivos`). Un medicamento archivado sigue
-apareciendo en el historial y en `useMedicamento(id)` (detalle), solo
-desaparece del listado de Inicio.
+**Terminar no es borrar; y borrar existe aparte.** Decisión del usuario
+tras el feedback de beta testers ("Archivados no tiene sentido"):
+`medicamentos.activo = false` significa **Terminado**, un tratamiento
+que acabó. Llega ahí de dos formas:
+- Sola: `terminarTratamientosFinalizados` (al abrir Inicio) termina los
+  medicamentos cuyas pautas activas han acabado TODAS
+  (`pautaTerminada`: el día siguiente al último, no a la última hora, para
+  que el último día aún se puedan marcar las tomas). Un medicamento sin
+  pautas activas no se termina solo.
+- A mano: `useTerminarMedicamento` (borra solo las pendientes futuras).
+
+Un terminado conserva historial y pautas, sale de Inicio y de los
+avisos, y se puede reactivar (`useReactivarMedicamento`): eso desactiva
+sus pautas viejas —si no, la terminación automática lo devolvería a
+Terminados en la siguiente apertura— y lleva a Editar con la hoja de
+"Nueva pauta" abierta. `useMedicamentos()` filtra `activo = true` por
+defecto (`soloActivos`).
+
+**Eliminar** (`useEliminarMedicamento`, desde Editar) es borrado
+definitivo del medicamento, sus pautas y todo su historial. Borra tomas y
+pautas explícitamente antes que el medicamento: **`expo-sqlite` no activa
+`PRAGMA foreign_keys` en la conexión de las pantallas**, así que los
+`onDelete: 'cascade'` del esquema no se cumplen ahí. No confíes en ellos
+para ningún borrado nuevo.
+
+**Editar una pauta vale desde ahora** (`usePautas.ts`): cambiarla o
+quitarla borra físicamente sus tomas pendientes futuras (las generó la
+pauta, no hace falta tumba) y deja las pasadas como estén. Quitar una
+pauta la desactiva (`activo = false`) en vez de borrarla, para que sus
+tomas pasadas conserven su franja horaria. El tipo de una pauta no se
+cambia al editar: se quita y se añade otra. Un medicamento puede tener
+varias pautas (p. ej. 09:00 y 21:00, o una semanal y un tratamiento).
 
 **Inicio muestra una tarjeta por medicamento (su próxima toma pendiente),
 no una lista de todas las tomas de hoy.** Decisión explícita del usuario
@@ -201,6 +228,17 @@ migrar todas las tablas de abajo.
 Tablas: `medicamentos`, `horarios_medicamento`, `tomas`,
 `codigos_barras_aprendidos`, `medidas_salud`, `citas_medicas`.
 
+**Dosis:** `medicamentos.dosis` sigue siendo texto ("600 mg") porque lo
+leen Inicio, Historial, el PDF, los avisos y los códigos aprendidos, pero
+ya no se escribe a mano: el formulario (`formulario.ts`) pide cantidad
+numérica + unidad de `UNIDADES_DOSIS` y compone el texto. Una dosis
+antigua no numérica se enseña como pista al editar y obliga a poner un
+número. **Caducidad:** `fechaCaducidad`, fecha local "YYYY-MM-DD"
+opcional; aviso a 30 días (`estadoCaducidad`).
+
+Alta y edición comparten `CamposMedicamento` y `EditorPauta`: editar
+debe permitir cambiar lo mismo que se escribió al crear.
+
 **Stock restante** no se guarda: se calcula en consulta como
 `stockInicial − SUM(unidadesPorToma)` de las tomas en estado `tomado`
 (ver `useMedicamentos`).
@@ -249,7 +287,7 @@ generación de tomas opuestos, no una variación menor del mismo:
 - `'semanal'`: tomas generadas perezosamente día a día
   (`useAsegurarTomasDeHoy`), porque no tiene fecha de fin.
 - `'intervalo'`: TODAS las tomas se generan de golpe al crear el horario
-  (`useCrearTratamientoIntervalo`), porque el fin se conoce desde el
+  (`useCrearPauta` → `generarTomasIntervalo`), porque el fin se conoce desde el
   principio.
 
 Por eso `hora`/`diasSemana`/`fechaFin` (solo aplican a 'semanal') y
@@ -317,7 +355,8 @@ ese minuto, sea cual sea su tipo de pauta, una línea por medicamento
 (Android aplica `BigTextStyle`, se leen todos al expandir).
 
 Se llama tras cualquier escritura que cambie qué toca (marcar, editar o
-quitar tomas; crear pauta o tratamiento; editar o archivar medicamento),
+quitar tomas; crear, cambiar o quitar pautas; editar, terminar, reactivar
+o eliminar medicamento),
 siempre desde el hook que escribe y sin `await` para no frenar la
 interfaz, y al abrir Inicio, que renueva la ventana. Las llamadas se
 serializan: dos "cancelar todo + programar" intercalados duplicarían
@@ -386,6 +425,13 @@ superficie en `colors.ts`). Reglas que conviene no romper por descuido:
   vista se anulan entre sí; si alguien "simplifica" Card a una sola
   vista, o desaparecen las sombras o se ven las esquinas cuadradas de
   las filas dentro de una lista agrupada.
+- **Unidades dentro del campo, no debajo.** `TextField` tiene `sufijo`
+  ("kg", "horas"); `ayuda` es para pistas y errores. Bug de diseño
+  reportado: "kg" suelto bajo el campo de peso parecía otra etiqueta.
+- **Nada de controles con scroll horizontal.** Los beta testers no veían
+  las opciones de la derecha. `SegmentedControl` es para 2-4 opciones que
+  caben; si no caben, `Selector` (campo que abre una hoja con la lista).
+  La prop `desplazable` de SegmentedControl queda solo por compatibilidad.
 - **Estado nunca solo por color** (requisito de accesibilidad del plan):
   los badges de estado llevan color + texto, y en Historial además
   icono.

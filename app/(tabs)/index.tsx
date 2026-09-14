@@ -18,6 +18,7 @@ import { useProximaTomaPorMedicamento, type ProximaToma } from '@/features/tomas
 import { useAsegurarTomasDeHoy } from '@/features/tomas/hooks/useAsegurarTomasDeHoy';
 import { useMarcarToma } from '@/features/tomas/hooks/useMarcarToma';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
+import { terminarTratamientosFinalizados } from '@/features/medicamentos/hooks/useActualizarMedicamento';
 import { EditarTomaModal } from '@/features/tomas/components/EditarTomaModal';
 import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 import { useDb } from '@/db/client';
@@ -78,12 +79,16 @@ export default function Inicio() {
 
   useFocusEffect(
     useCallback(() => {
-      asegurarTomasDeHoy().then(() => {
-        recargarProximas();
-        // Abrir la app renueva la ventana de avisos programados (ver scheduler.ts).
-        void sincronizarNotificaciones(db);
-      });
-      recargarMedicamentos();
+      // Primero se pasan a Terminados los tratamientos que acabaron ayer o
+      // antes, para no generar ni avisar tomas de algo que ya terminó.
+      terminarTratamientosFinalizados(db)
+        .then(() => asegurarTomasDeHoy())
+        .then(() => {
+          recargarProximas();
+          recargarMedicamentos();
+          // Abrir la app renueva la ventana de avisos programados (ver scheduler.ts).
+          void sincronizarNotificaciones(db);
+        });
     }, [asegurarTomasDeHoy, recargarProximas, recargarMedicamentos, db]),
   );
 

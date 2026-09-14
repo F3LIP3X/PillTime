@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Archive, CalendarDays, Clock, FileText, Package, Pencil, Pill, Trash2, Utensils } from 'lucide-react-native';
+import { CalendarClock, CalendarDays, CircleStop, Clock, FileText, Package, Pencil, Pill, RotateCcw, Trash2, Utensils } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -13,7 +13,9 @@ import { radii } from '@/theme/radii';
 import { typography } from '@/theme/typography';
 import { useMedicamento } from '@/features/medicamentos/hooks/useMedicamento';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
-import { useArchivarMedicamento } from '@/features/medicamentos/hooks/useActualizarMedicamento';
+import { useReactivarMedicamento, useTerminarMedicamento } from '@/features/medicamentos/hooks/useActualizarMedicamento';
+import { estadoCaducidad } from '@/features/medicamentos/formulario';
+import { describirPauta } from '@/features/medicamentos/describirPauta';
 import { useEliminarTomaPrevista, useProximasTomas } from '@/features/tomas/hooks/useProximasTomas';
 import { claveDia, type Ocurrencia } from '@/features/tomas/ocurrencias';
 
@@ -27,10 +29,10 @@ const ETIQUETA_DIA: Record<number, string> = { 1: 'L', 2: 'M', 3: 'X', 4: 'J', 5
 
 const UMBRAL_STOCK_BAJO = 5;
 
-/** "YYYY-MM-DD" local → "12 de octubre". Se construye en local, no con `new Date(texto)`, que lo leería como UTC. */
+/** "YYYY-MM-DD" local → "12 oct 2027". Se construye en local, no con `new Date(texto)`, que lo leería como UTC. */
 function fechaLarga(clave: string) {
   const [a, m, d] = clave.split('-').map(Number);
-  return new Date(a, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+  return new Date(a, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function etiquetaDiaToma(fechaIso: string) {
@@ -50,7 +52,8 @@ export default function DetalleMedicamento() {
   const { colors } = useTheme();
   const { medicamento, horarios, recargar: recargarMedicamento } = useMedicamento(medicamentoId);
   const { medicamentos: conStock, recargar: recargarStock } = useMedicamentos({ soloActivos: false });
-  const archivar = useArchivarMedicamento();
+  const terminar = useTerminarMedicamento();
+  const reactivar = useReactivarMedicamento();
   const { tomasPrevistas, recargar: recargarPrevistas } = useProximasTomas(medicamentoId);
   const eliminarTomaPrevista = useEliminarTomaPrevista();
 
@@ -89,9 +92,29 @@ export default function DetalleMedicamento() {
     ]);
   };
 
-  const handleArchivar = async () => {
-    await archivar(medicamentoId);
-    router.back();
+  const caducidad = estadoCaducidad(medicamento.fechaCaducidad);
+
+  const handleTerminar = () => {
+    Alert.alert(
+      'Terminar tratamiento',
+      'Pasará a Terminados: dejará de salir en Inicio y de avisar. Su historial se conserva y podrás reactivarlo.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Terminar',
+          onPress: async () => {
+            await terminar(medicamentoId);
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleReactivar = async () => {
+    await reactivar(medicamentoId);
+    // La pauta antigua ya terminó: se pide una nueva directamente.
+    router.push({ pathname: '/medicamento/[id]/editar', params: { id: String(medicamentoId), nuevaPauta: '1' } });
   };
 
   return (
@@ -109,6 +132,36 @@ export default function DetalleMedicamento() {
           <Text style={[typography.body, { color: colors.textSecondary }]}>{medicamento.dosis}</Text>
         </View>
       </View>
+
+      {!medicamento.activo && (
+        <Card elevacion="none" sinPadding>
+          <View style={[styles.aviso, { backgroundColor: colors.fill }]}>
+            <CircleStop color={colors.textSecondary} size={20} />
+            <View style={styles.avisoTextos}>
+              <Text style={[typography.bodyStrong, { color: colors.text }]}>Tratamiento terminado</Text>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                No crea tomas ni avisos. Al reactivarlo te pediremos una pauta nueva.
+              </Text>
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {caducidad && caducidad !== 'ok' && (
+        <Card elevacion="none" sinPadding>
+          <View style={[styles.aviso, { backgroundColor: caducidad === 'caducado' ? colors.errorSoft : colors.warningSoft }]}>
+            <CalendarClock color={caducidad === 'caducado' ? colors.error : colors.warning} size={20} />
+            <View style={styles.avisoTextos}>
+              <Text style={[typography.bodyStrong, { color: caducidad === 'caducado' ? colors.error : colors.warning }]}>
+                {caducidad === 'caducado' ? 'Caducado' : 'Caduca pronto'}
+              </Text>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                Fecha de caducidad: {fechaLarga(medicamento.fechaCaducidad!)}
+              </Text>
+            </View>
+          </View>
+        </Card>
+      )}
 
       <View style={styles.tarjetasCifra}>
         <Card style={styles.tarjetaCifra}>
@@ -173,11 +226,7 @@ export default function DetalleMedicamento() {
                       })}
                     </View>
                     <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                      {horario.fechaFin
-                        ? claveDia(new Date()) > horario.fechaFin
-                          ? `Terminó el ${fechaLarga(horario.fechaFin)}`
-                          : `Hasta el ${fechaLarga(horario.fechaFin)}, incluido`
-                        : 'Indefinido'}
+                      {describirPauta(horario).detalle}
                     </Text>
                   </View>
                 </>
@@ -206,6 +255,14 @@ export default function DetalleMedicamento() {
               {ETIQUETA_MOMENTO[medicamento.momentoComida ?? 'ninguno']}
             </Text>
           </View>
+          {caducidad === 'ok' && (
+            <View style={styles.filaHorario}>
+              <CalendarClock color={colors.textTertiary} size={18} />
+              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                Caduca el {fechaLarga(medicamento.fechaCaducidad!)}
+              </Text>
+            </View>
+          )}
         </Card>
       </View>
 
@@ -273,12 +330,19 @@ export default function DetalleMedicamento() {
           icono={<Pencil color="#FFFFFF" size={18} />}
           onPress={() => router.push(`/medicamento/${medicamentoId}/editar`)}
         />
-        {medicamento.activo && (
+        {medicamento.activo ? (
           <Button
-            label="Archivar"
+            label="Terminar tratamiento"
             variant="secondary"
-            icono={<Archive color={colors.primary} size={18} />}
-            onPress={handleArchivar}
+            icono={<CircleStop color={colors.primary} size={18} />}
+            onPress={handleTerminar}
+          />
+        ) : (
+          <Button
+            label="Reactivar"
+            variant="secondary"
+            icono={<RotateCcw color={colors.primary} size={18} />}
+            onPress={handleReactivar}
           />
         )}
       </View>
@@ -317,4 +381,6 @@ const styles = StyleSheet.create({
   separador: { height: StyleSheet.hairlineWidth, marginVertical: spacing.xs },
   notas: { flex: 1 },
   acciones: { gap: spacing.sm },
+  aviso: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md },
+  avisoTextos: { flex: 1, gap: 2 },
 });

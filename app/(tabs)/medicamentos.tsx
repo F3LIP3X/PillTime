@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Archive, Pill, Plus } from 'lucide-react-native';
+import { CircleStop, Pill, Plus } from 'lucide-react-native';
 
 import { Button } from '@/components/Button';
 import { PieAccion } from '@/components/PieAccion';
@@ -15,13 +15,14 @@ import { spacing } from '@/theme/spacing';
 import { radii } from '@/theme/radii';
 import { typography } from '@/theme/typography';
 import { useMedicamentos } from '@/features/medicamentos/hooks/useMedicamentos';
+import { estadoCaducidad } from '@/features/medicamentos/formulario';
 
 const UMBRAL_STOCK_BAJO = 5;
 
 export default function Medicamentos() {
   const { colors } = useTheme();
   const router = useRouter();
-  const [vista, setVista] = useState<'activos' | 'archivados'>('activos');
+  const [vista, setVista] = useState<'activos' | 'terminados'>('activos');
   const { medicamentos, recargar } = useMedicamentos({ soloActivos: vista === 'activos' });
 
   useFocusEffect(
@@ -30,7 +31,7 @@ export default function Medicamentos() {
     }, [recargar]),
   );
 
-  const lista = vista === 'archivados' ? medicamentos.filter((m) => !m.activo) : medicamentos;
+  const lista = vista === 'terminados' ? medicamentos.filter((m) => !m.activo) : medicamentos;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -38,7 +39,7 @@ export default function Medicamentos() {
         <SegmentedControl
           opciones={[
             { valor: 'activos', etiqueta: 'Activos' },
-            { valor: 'archivados', etiqueta: 'Archivados' },
+            { valor: 'terminados', etiqueta: 'Terminados' },
           ]}
           valor={vista}
           onChange={setVista}
@@ -47,16 +48,16 @@ export default function Medicamentos() {
         {lista.length === 0 ? (
           <EmptyState
             icono={
-              vista === 'archivados' ? (
-                <Archive color={colors.primary} size={30} />
+              vista === 'terminados' ? (
+                <CircleStop color={colors.primary} size={30} />
               ) : (
                 <Pill color={colors.primary} size={30} />
               )
             }
-            titulo={vista === 'archivados' ? 'Nada archivado' : 'Sin medicamentos'}
+            titulo={vista === 'terminados' ? 'Ningún tratamiento terminado' : 'Sin medicamentos'}
             descripcion={
-              vista === 'archivados'
-                ? 'Los medicamentos que archives aparecerán aquí, con su historial intacto.'
+              vista === 'terminados'
+                ? 'Cuando acabe la pauta de un medicamento, o lo termines a mano, pasará aquí con su historial. Desde aquí se puede reactivar.'
                 : 'Añade el primero para empezar a recibir recordatorios de tus tomas.'
             }
           />
@@ -68,11 +69,18 @@ export default function Medicamentos() {
             <Card sinPadding>
               {lista.map((medicamento, index) => {
                 const stockBajo = medicamento.stockRestante <= UMBRAL_STOCK_BAJO;
+                const caducidad = estadoCaducidad(medicamento.fechaCaducidad);
                 return (
                   <ListRow
                     key={medicamento.id}
                     titulo={medicamento.nombre}
-                    subtitulo={medicamento.dosis}
+                    subtitulo={
+                      caducidad === 'caducado'
+                        ? `${medicamento.dosis} · Caducado`
+                        : caducidad === 'pronto'
+                          ? `${medicamento.dosis} · Caduca pronto`
+                          : medicamento.dosis
+                    }
                     izquierda={
                       <IconoCircular>
                         <Pill color={colors.primary} size={20} />
