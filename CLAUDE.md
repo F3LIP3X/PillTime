@@ -67,8 +67,8 @@ por feature:
 
 ### Pantallas (`app/`)
 
-`(tabs)` = Inicio / Medicamentos ("Fármacos") / Medidas (y Salud dental
-y Ciclo, ver más abajo). **Máximo 5 pestañas**: decisión del usuario del
+`(tabs)` = Inicio / Medicamentos ("Fármacos") / Medidas / Salud dental
+("Dental") / Ciclo (solo si en el onboarding se eligió mujer). **Máximo 5 pestañas**: decisión del usuario del
 14-09-2026, porque con más las etiquetas se cortan. Historial y Ajustes
 salieron de la barra a pantallas de la pila (`app/historial.tsx`,
 `app/ajustes.tsx`): se abren con los iconos de arriba de Inicio, e
@@ -229,6 +229,24 @@ inserta una fila de prueba, aplica la nueva migración, y comprueba
 Si se borra o falla la importación de un `.sql` en tiempo de build, revisa
 primero estos dos archivos antes de sospechar de Drizzle.
 
+## Salud dental (`app/(tabs)/dental.tsx`)
+
+Temporizador de 2 minutos (duración recomendada por la OMS) con guía de
+4 zonas de 30 s. Solo se guarda un registro en `cepillados` cuando el
+contador llega a cero; cancelar no deja nada. Detalles que importan:
+- El estado del temporizador vive en Zustand (`cepilladoStore`) y guarda
+  el **instante de inicio**, no un contador: con la app en segundo plano
+  los intervalos de JS se congelan, y al volver el tiempo se recalcula
+  desde el reloj y el cepillado se guarda con su hora real de fin.
+  `terminar()` limpia y devuelve el inicio de forma síncrona para no
+  guardar dos veces. No se persiste: cerrar la app a mitad lo descarta.
+- `expo-keep-awake` (dependencia directa; ya venía dentro de `expo`)
+  mantiene la pantalla encendida solo mientras corre el temporizador.
+- Racha: días seguidos con al menos un cepillado; si hoy aún no hay
+  ninguno, se cuenta desde ayer (no se "pierde" la racha por la mañana).
+  Calendario de 5 semanas con color + puntos por número de cepillados
+  (nunca solo color). Se leen 90 días, no toda la tabla.
+
 ## Rendimiento con mucho histórico
 
 Medido con una base sembrada de 3 años de uso intenso (≈ 40.000 tomas,
@@ -271,7 +289,8 @@ Perfil único por instalación: **no existe tabla de perfiles ni columna
 migrar todas las tablas de abajo.
 
 Tablas: `medicamentos`, `horarios_medicamento`, `tomas`,
-`codigos_barras_aprendidos`, `medidas_salud`, `citas_medicas`.
+`codigos_barras_aprendidos`, `medidas_salud`, `citas_medicas`,
+`cepillados`.
 
 **Dosis:** `medicamentos.dosis` sigue siendo texto ("600 mg") porque lo
 leen Inicio, Historial, el PDF, los avisos y los códigos aprendidos, pero

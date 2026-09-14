@@ -250,3 +250,21 @@ export const citasMedicas = sqliteTable('citas_medicas', {
     .notNull()
     .default(sql`(current_timestamp)`),
 });
+
+/**
+ * Salud dental: un registro por cepillado COMPLETADO. Solo se guarda
+ * cuando el temporizador llega al final (2 minutos, la duración que
+ * recomiendan la OMS y las sociedades odontológicas); cancelar antes no
+ * deja rastro. `fechaHora` es el instante en que terminó.
+ * `duracionSegundos` se guarda aunque hoy siempre sea 120, por si en el
+ * futuro la duración se puede configurar y cambia lo que significa un
+ * registro antiguo.
+ */
+export const cepillados = sqliteTable('cepillados', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  fechaHora: text('fecha_hora').notNull(),
+  duracionSegundos: integer('duracion_segundos').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(current_timestamp)`),
+}, (tabla) => [index('cepillados_fecha').on(tabla.fechaHora)]);

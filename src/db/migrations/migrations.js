@@ -7,6 +7,7 @@ import m0002 from './0002_curious_jack_murdock.sql';
 import m0003 from './0003_rainy_talkback.sql';
 import m0004 from './0004_hesitant_absorbing_man.sql';
 import m0005 from './0005_eminent_king_cobra.sql';
+import m0006 from './0006_glorious_namorita.sql';
 
   export default {
     journal,
@@ -16,7 +17,8 @@ m0001,
 m0002,
 m0003,
 m0004,
-m0005
+m0005,
+m0006
     }
   }
   

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Activity, History, House, Pill } from 'lucide-react-native';
+import { Activity, History, House, Pill, Toothbrush } from 'lucide-react-native';
 
 import { useTheme } from '@/theme/useTheme';
 import { typography } from '@/theme/typography';
@@ -80,6 +80,14 @@ export default function TabsLayout() {
         options={{
           title: 'Medidas',
           tabBarIcon: ({ color, size }) => <Activity color={color} size={size - 2} />,
+        }}
+      />
+      <Tabs.Screen
+        name="dental"
+        options={{
+          title: 'Salud dental',
+          tabBarLabel: 'Dental',
+          tabBarIcon: ({ color, size }) => <Toothbrush color={color} size={size - 2} />,
         }}
       />
     </Tabs>
