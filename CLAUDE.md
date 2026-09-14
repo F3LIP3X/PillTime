@@ -277,6 +277,43 @@ contador llega a cero; cancelar no deja nada. Detalles que importan:
   Calendario de 5 semanas con color + puntos por número de cepillados
   (nunca solo color). Se leen 90 días, no toda la tabla.
 
+## Ciclo menstrual (`app/(tabs)/ciclo.tsx`)
+
+Pestaña visible solo con `sexo === 'mujer'` (`Tabs.Protected` en
+`app/(tabs)/_layout.tsx`); se cambia en Ajustes → Perfil. Todo local.
+
+- **Se guardan reglas, no ciclos** (`periodos`: `fechaInicio`,
+  `fechaFin` null = en curso; días locales "YYYY-MM-DD"). Un ciclo es de
+  un inicio al siguiente; guardarlo aparte se desincronizaría al corregir
+  una fecha. Síntomas por día en `registros_ciclo` (fecha única, chips
+  rápidos + `notas` en texto libre).
+- **Cálculos puros en `src/features/ciclo/prediccion.ts`**, con los
+  criterios documentados arriba del archivo: solo cuentan ciclos de 15 a
+  60 días (fuera de eso casi siempre es un olvido de registro), media de
+  los 6 últimos, 28/5 días por defecto sin datos, ovulación 14 días antes
+  de la próxima regla, ventana fértil −5/+1, regularidad por desviación
+  típica (hacen falta 3 ciclos). Con retraso no se pinta una regla
+  "prevista" en días pasados (se reprograma desde mañana) y la ovulación
+  del ciclo actual mantiene la estimación original.
+- **Reglas de registro en `reglas.ts`** (`planInicio`, `validarFin`): sin
+  fechas futuras ni solapes; con una regla abierta de pocos días se pide
+  cerrarla antes; una abierta de más de 10 días se da por olvidada y se
+  cierra sola con la duración media; una regla registrada a posteriori se
+  guarda ya cerrada sin pisar la siguiente.
+- Aritmética de días en `fechas.ts`, en UTC sobre año/mes/día: con fechas
+  locales los cambios de hora meten días de 23 o 25 h.
+- **Recordatorio opcional** ("Avisarme antes de la regla", en
+  `preferenciasStore`): 2 días antes a las 9:00. Se programa DENTRO de
+  `sincronizarNotificaciones`, porque esa función cancela todo lo
+  programado; cualquier cambio en reglas, en el interruptor o en el sexo
+  la vuelve a llamar.
+- Colores de fase fijos (`menstruacion`, `fertil` y sus `Soft`, texto
+  `onFase`), validados como par para daltonismo; en el calendario cada
+  fase lleva también una forma distinta (relleno, borde discontinuo para
+  la regla prevista, fondo suave, punto de síntomas) y leyenda.
+- Las pantallas repiten que son estimaciones y que no sirven como
+  anticonceptivo. No lo quites.
+
 ## Rendimiento con mucho histórico
 
 Medido con una base sembrada de 3 años de uso intenso (≈ 40.000 tomas,
@@ -320,7 +357,7 @@ migrar todas las tablas de abajo.
 
 Tablas: `medicamentos`, `horarios_medicamento`, `tomas`,
 `codigos_barras_aprendidos`, `medidas_salud`, `citas_medicas`,
-`cepillados`.
+`cepillados`, `periodos`, `registros_ciclo`.
 
 **Dosis:** `medicamentos.dosis` sigue siendo texto ("600 mg") porque lo
 leen Inicio, Historial, el PDF, los avisos y los códigos aprendidos, pero

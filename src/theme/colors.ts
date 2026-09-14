@@ -58,6 +58,18 @@ export const lightColors = {
   /** Rejilla y eje de gráficas: un paso sobre la superficie, recesivos. */
   rejilla: '#E4EBEC',
   eje: '#C5D0D2',
+
+  /**
+   * Fases del ciclo menstrual en el calendario. Fijos en todos los colores
+   * de la app (como los estados): validados como par para daltonismo y con
+   * `onFase` encima ≥ 4,5:1. Siempre acompañados de leyenda y de una marca
+   * distinta (relleno / borde discontinuo / punto), nunca solo color.
+   */
+  menstruacion: '#C2255C',
+  menstruacionSoft: '#FBE3EC',
+  fertil: '#5F4BD0',
+  fertilSoft: '#ECE9FB',
+  onFase: '#FFFFFF',
 };
 
 export const darkColors: Colors = {
@@ -88,6 +100,12 @@ export const darkColors: Colors = {
   serie2: '#D95926',
   rejilla: '#263030',
   eje: '#3A4545',
+
+  menstruacion: '#E0588A',
+  menstruacionSoft: '#3A1824',
+  fertil: '#8A7CF0',
+  fertilSoft: '#25213F',
+  onFase: '#161012',
 };
 
 export type Colors = { [K in keyof typeof lightColors]: string };

@@ -37,10 +37,13 @@ type PreferenciasStore = {
   onboardingCompletado: boolean;
   /** null solo antes del onboarding. */
   sexo: Sexo | null;
+  /** Aviso opcional unos días antes de la próxima regla estimada. */
+  recordatorioCiclo: boolean;
   setTema: (tema: PreferenciaTema) => void;
   setColorBase: (color: ColorBase) => void;
   setSexo: (sexo: Sexo) => void;
   completarOnboarding: () => void;
+  setRecordatorioCiclo: (activo: boolean) => void;
 };
 
 export const usePreferenciasStore = create<PreferenciasStore>()(
@@ -50,10 +53,12 @@ export const usePreferenciasStore = create<PreferenciasStore>()(
       colorBase: 'teal',
       onboardingCompletado: false,
       sexo: null,
+      recordatorioCiclo: false,
       setTema: (tema) => set({ tema }),
       setColorBase: (colorBase) => set({ colorBase }),
       setSexo: (sexo) => set({ sexo }),
       completarOnboarding: () => set({ onboardingCompletado: true }),
+      setRecordatorioCiclo: (recordatorioCiclo) => set({ recordatorioCiclo }),
     }),
     {
       name: 'pilltime-preferencias',

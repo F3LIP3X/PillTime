@@ -7,7 +7,9 @@ import { IconoCircular } from '@/components/IconoCircular';
 import { ListRow } from '@/components/ListRow';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useTheme } from '@/theme/useTheme';
-import { usePreferenciasStore } from '@/stores/preferenciasStore';
+import { usePreferenciasStore, type Sexo } from '@/stores/preferenciasStore';
+import { useDb } from '@/db/client';
+import { sincronizarNotificaciones } from '@/features/notificaciones/scheduler';
 import { COLORES_BASE, paletaDe, type ColorBase } from '@/theme/paletas';
 import { radii } from '@/theme/radii';
 import { spacing } from '@/theme/spacing';
@@ -22,6 +24,13 @@ export default function Ajustes() {
   const setColorBase = usePreferenciasStore((s) => s.setColorBase);
   const sexo = usePreferenciasStore((s) => s.sexo);
   const setSexo = usePreferenciasStore((s) => s.setSexo);
+  const db = useDb();
+
+  const cambiarSexo = (valor: Sexo) => {
+    setSexo(valor);
+    // El recordatorio del ciclo solo se programa con 'mujer'.
+    void sincronizarNotificaciones(db);
+  };
 
   return (
     <ScrollView
@@ -117,7 +126,7 @@ export default function Ajustes() {
               { valor: 'hombre', etiqueta: 'Hombre' },
             ]}
             valor={sexo ?? 'mujer'}
-            onChange={setSexo}
+            onChange={cambiarSexo}
           />
         </Card>
       </View>

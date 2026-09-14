@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Activity, History, House, Pill, Toothbrush } from 'lucide-react-native';
+import { Activity, Droplet, History, House, Pill, Toothbrush } from 'lucide-react-native';
+
+import { usePreferenciasStore } from '@/stores/preferenciasStore';
 
 import { useTheme } from '@/theme/useTheme';
 import { typography } from '@/theme/typography';
@@ -18,6 +20,7 @@ const ALTO_BARRA = 58;
 export default function TabsLayout() {
   const { colors } = useTheme();
   const router = useRouter();
+  const sexo = usePreferenciasStore((s) => s.sexo);
   // La barra de gestos de Android (y el home indicator de iPhone) ocupan
   // espacio real: hay que SUMARLO al alto en vez de fijar una altura, o
   // el sistema dibuja su barra encima de las etiquetas.
@@ -90,6 +93,17 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Toothbrush color={color} size={size - 2} />,
         }}
       />
+      {/* Solo si en el onboarding (o en Ajustes → Perfil) se eligió mujer. */}
+      <Tabs.Protected guard={sexo === 'mujer'}>
+        <Tabs.Screen
+          name="ciclo"
+          options={{
+            title: 'Ciclo menstrual',
+            tabBarLabel: 'Ciclo',
+            tabBarIcon: ({ color, size }) => <Droplet color={color} size={size - 2} />,
+          }}
+        />
+      </Tabs.Protected>
     </Tabs>
   );
 }

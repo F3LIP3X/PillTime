@@ -268,3 +268,59 @@ export const cepillados = sqliteTable('cepillados', {
     .notNull()
     .default(sql`(current_timestamp)`),
 }, (tabla) => [index('cepillados_fecha').on(tabla.fechaHora)]);
+
+/**
+ * Ciclo menstrual (solo visible si en el onboarding se eligió mujer).
+ *
+ * Se guardan las REGLAS (periodos de sangrado), no los ciclos: un ciclo es
+ * lo que va de un inicio de regla al siguiente, y guardarlo aparte
+ * duplicaría el dato y se desincronizaría al corregir una fecha. Duraciones,
+ * medias, fases y predicciones se calculan (src/features/ciclo/prediccion.ts).
+ *
+ * Fechas como día local "YYYY-MM-DD", no instantes: "me vino el día 3" es
+ * un día del calendario del usuario. `fechaFin` null = regla en curso.
+ */
+export const periodos = sqliteTable('periodos', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  fechaInicio: text('fecha_inicio').notNull().unique(),
+  fechaFin: text('fecha_fin'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const FLUJO = ['manchado', 'ligero', 'medio', 'abundante'] as const;
+export const DOLOR = ['sin-dolor', 'leve', 'moderado', 'fuerte'] as const;
+export const ANIMO_CICLO = ['bien', 'sensible', 'irritable', 'triste', 'ansiosa'] as const;
+export const ENERGIA = ['baja', 'normal', 'alta'] as const;
+export const SINTOMAS_CICLO = [
+  'colicos',
+  'dolor-cabeza',
+  'hinchazon',
+  'sensibilidad-pecho',
+  'dolor-espalda',
+  'acne',
+  'nauseas',
+  'antojos',
+  'insomnio',
+] as const;
+
+/**
+ * Síntomas de un día del ciclo: una fila por día como máximo (`fecha`
+ * única). Selectores rápidos para lo común y `notas` en texto libre para
+ * lo demás, igual que los síntomas de Medidas. `sintomas` es CSV de
+ * SINTOMAS_CICLO. Todo nullable: se apunta solo lo que el usuario marca.
+ */
+export const registrosCiclo = sqliteTable('registros_ciclo', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  fecha: text('fecha').notNull().unique(),
+  flujo: text('flujo', { enum: FLUJO }),
+  dolor: text('dolor', { enum: DOLOR }),
+  animo: text('animo', { enum: ANIMO_CICLO }),
+  energia: text('energia', { enum: ENERGIA }),
+  sintomas: text('sintomas'),
+  notas: text('notas'),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});

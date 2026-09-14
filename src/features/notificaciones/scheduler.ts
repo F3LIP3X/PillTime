@@ -4,7 +4,11 @@ import { Platform } from 'react-native';
 
 import type { Db } from '@/db/client';
 import { cargarOcurrencias } from '@/features/tomas/cargarOcurrencias';
-import { MS_DIA } from '@/features/tomas/ocurrencias';
+import { claveDia, MS_DIA } from '@/features/tomas/ocurrencias';
+import { periodos } from '@/db/schema';
+import { analizar } from '@/features/ciclo/prediccion';
+import { fechaLegible, sumarDias } from '@/features/ciclo/fechas';
+import { usePreferenciasStore } from '@/stores/preferenciasStore';
 import { agruparPorMinuto, contenidoDeAviso } from './agrupar';
 
 type ModuloNotificaciones = typeof NotificacionesTipo;
@@ -219,7 +223,38 @@ async function sincronizarUnaVez(db: Db) {
         console.warn('No se pudo programar un aviso:', error);
       }
     }
+    await programarRecordatorioCiclo(db, Notifications, ahora);
   } catch (error) {
     console.warn('No se pudieron sincronizar las notificaciones:', error);
   }
+}
+
+/** Días antes de la regla estimada en que avisa el recordatorio del ciclo. */
+const DIAS_AVISO_CICLO = 2;
+
+/**
+ * Recordatorio opcional del ciclo (Ciclo → "Avisarme antes de la regla").
+ * Va dentro de la misma sincronización que los avisos de tomas porque
+ * `sincronizarUnaVez` cancela TODO lo programado: un aviso programado por
+ * otro camino se borraría en la siguiente toma marcada. Por eso cualquier
+ * cambio en reglas o en el interruptor llama a `sincronizarNotificaciones`.
+ */
+async function programarRecordatorioCiclo(db: Db, Notifications: ModuloNotificaciones, ahora: Date) {
+  const { sexo, recordatorioCiclo } = usePreferenciasStore.getState();
+  if (sexo !== 'mujer' || !recordatorioCiclo) return;
+
+  const { prediccion } = analizar(await db.select().from(periodos), claveDia(ahora));
+  if (!prediccion) return;
+
+  const [a, m, d] = sumarDias(prediccion.proximaRegla, -DIAS_AVISO_CICLO).split('-').map(Number);
+  const fecha = new Date(a, m - 1, d, 9, 0, 0, 0);
+  if (fecha.getTime() <= ahora.getTime()) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `Tu próxima regla se estima en ${DIAS_AVISO_CICLO} días`,
+      body: `Hacia el ${fechaLegible(prediccion.proximaRegla, { weekday: 'long', day: 'numeric', month: 'long' })}, según tus ciclos anteriores.`,
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fecha, channelId: CANAL_RECORDATORIOS },
+  });
 }
